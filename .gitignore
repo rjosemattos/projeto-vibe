@@ -40,6 +40,8 @@ MANIFEST
 *.spec
 
 # Virtual environments
+.env
+.venv
 .venv/
 env/
 venv/
@@ -54,6 +56,7 @@ htmlcov/
 .tox/
 .nox/
 
+# IDE & editors
 # Logs
 *.log
 logs/
