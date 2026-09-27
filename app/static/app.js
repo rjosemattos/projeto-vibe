@@ -216,3 +216,18 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 });
 
+$(function() {
+    $("#footer").load("/static/snippets/footer.html");
+    $("#header").load("/static/snippets/header.html");
+    $("#sobre").load("/static/snippets/sobre.html");
+});
+
+window.addEventListener('scroll', function () {
+    const elemento = document.getElementById('header-brand');
+
+    if (window.scrollY > 50) {
+        elemento.classList.add('scrolled');
+    } else {
+        elemento.classList.remove('scrolled');
+    }
+});

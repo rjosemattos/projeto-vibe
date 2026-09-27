@@ -1,146 +1,137 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
-<head>
+<head> 
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Prompt Sanitizer — Privacy Guardrail para IA</title>
-    <link rel="stylesheet" href="/static/style.css">
+    <link rel="stylesheet" href="/static/style.css"> 
 </head>
 <body>
-    <header class="app-header">
-        <div class="header-container">
-            <div class="brand">
-                <span class="brand-icon">🛡️</span>
-                <div>
-                    <h1>Prompt Sanitizer</h1>
-                    <p class="brand-tagline">Camada Preventiva de Privacidade & Segurança para Ferramentas de IA</p>
-                </div>
-            </div>
-            <div class="privacy-guarantee-badge">
-                <span class="badge-lock">🔒</span>
-                <span>Processamento 100% Local • Zero Retenção</span>
-            </div>
-        </div>
-    </header>
+    <header class="app-header" id="header"></header>
 
-    <main class="main-container">
-        <!-- Banner Educativo UX -->
-        <section class="educational-banner">
-            <div class="mantra">
-                <span class="step step-1">Pare.</span>
-                <span class="step step-2">Pense.</span>
-                <span class="step step-3">Sanitize.</span>
-                <span class="step step-4">Continue.</span>
-            </div>
-            <p class="disclaimer">
-                Evite o compartilhamento não intencional de PIIs, credenciais e segredos em IAs conversacionais (ChatGPT, Claude, Copilot).
-            </p>
+       <!-- Banner Educativo UX -->
+        <section class="banner-geral">
+            <img src="/static/banners/02.png" alt="Banner">
         </section>
 
-        <!-- Input Card -->
-        <section class="card input-card">
-            <div class="card-header">
-                <h2>Prompt de Entrada</h2>
-                <div class="example-presets">
-                    <span class="preset-label">Exemplos rápidos:</span>
-                    <button type="button" class="btn-preset" id="preset-cpf-email">CPF + E-mail</button>
-                    <button type="button" class="btn-preset" id="preset-secrets">API Key + Senha</button>
-                    <button type="button" class="btn-preset" id="preset-card">Cartão de Crédito</button>
-                    <button type="button" class="btn-preset" id="preset-clean">Prompt Limpo</button>
-                </div>
-            </div>
+    <div class="main-container-1">
+        <main class="main-container">
 
-            <div class="textarea-wrapper">
-                <textarea 
-                    id="prompt-input" 
-                    placeholder="Digite ou cole aqui o prompt que você pretende enviar para a IA..."
-                    rows="6"
-                    maxlength="50000"
-                ></textarea>
-                <div class="char-counter">
-                    <span id="char-count">0</span> / 50.000 caracteres
-                </div>
-            </div>
-
-            <div class="action-bar">
-                <button type="button" id="btn-analyze" class="btn btn-primary">
-                    <span class="btn-icon">🔍</span> Analisar Prompt
-                </button>
-                <button type="button" id="btn-clear" class="btn btn-secondary">Limpar</button>
-            </div>
-        </section>
-
-        <!-- Loading Indicator -->
-        <div id="loading-spinner" class="loading-state hidden">
-            <div class="spinner"></div>
-            <p>Analisando padrões sensíveis e avaliando matriz de risco localmente...</p>
-        </div>
-
-        <!-- Results Card -->
-        <section id="results-card" class="card results-card hidden">
-            <div class="results-header" id="results-status-banner">
-                <div class="status-indicator">
-                    <span id="status-icon" class="status-icon">⚠️</span>
-                    <div>
-                        <h3 id="status-title">Dados sensíveis identificados</h3>
-                        <p id="status-subtitle">Revise as informações antes de enviar para ferramentas de IA.</p>
+            <!-- Input Card -->
+            
+            <section class="card input-card">
+                <div class="card-header">
+                    <h2>Prompt de Entrada</h2>
+                    <div class="example-presets">
+                        <span class="preset-label">Exemplos rápidos:</span>
+                        <button type="button" class="btn-preset" id="preset-cpf-email">CPF + E-mail</button>
+                        <button type="button" class="btn-preset" id="preset-secrets">API Key + Senha</button>
+                        <button type="button" class="btn-preset" id="preset-card">Cartão de Crédito</button>
+                        <button type="button" class="btn-preset" id="preset-clean">Prompt Limpo</button>
                     </div>
                 </div>
-                <div class="risk-badge-wrapper">
-                    <span class="risk-label">Risco Geral:</span>
-                    <span id="risk-badge" class="risk-badge risk-high">ALTO</span>
-                </div>
-            </div>
 
-            <!-- Risk Details & Reasons -->
-            <div id="risk-breakdown" class="risk-breakdown">
-                <h4>Fatores de Risco Avaliados</h4>
-                <ul id="risk-reasons-list"></ul>
-            </div>
-
-            <!-- Detections Grid -->
-            <div id="detections-section" class="detections-section">
-                <h4>Entidades Detectadas (<span id="detection-count">0</span>)</h4>
-                <div id="detections-grid" class="detections-grid"></div>
-            </div>
-
-            <!-- Sanitized Prompt Section -->
-            <div class="sanitized-section">
-                <div class="sanitized-header">
-                    <h4>Prompt Sanitizado (Pronto para IA)</h4>
-                    <div class="sanitized-actions">
-                        <button type="button" id="btn-edit-toggle" class="btn btn-secondary btn-sm">
-                            ✏️ Editar Sanitização
-                        </button>
-                        <button type="button" id="btn-copy" class="btn btn-success btn-sm">
-                            📋 Copiar Prompt Sanitizado
-                        </button>
-                    </div>
-                </div>
                 <div class="textarea-wrapper">
                     <textarea 
-                        id="sanitized-output" 
-                        rows="5" 
-                        readonly
+                        id="prompt-input" 
+                        placeholder="Digite ou cole aqui o prompt que você pretende enviar para a IA..."
+                        rows="6"
+                        maxlength="50000"
                     ></textarea>
+                    <div class="char-counter">
+                        <span id="char-count">0</span> / 50.000 caracteres
+                    </div>
                 </div>
-                <div id="copy-feedback" class="copy-feedback hidden">
-                    ✓ Prompt copiado para a área de transferência!
+
+                <div class="action-bar">
+                    <button type="button" id="btn-analyze" class="btn btn-primary">
+                        <span class="btn-icon">🔍</span> Analisar Prompt
+                    </button>
+                    <button type="button" id="btn-clear" class="btn btn-secondary">Limpar</button>
                 </div>
+            </section>
+
+            <!-- Loading Indicator -->
+            <div id="loading-spinner" class="loading-state hidden">
+                <div class="spinner"></div>
+                <p>Analisando padrões sensíveis e avaliando matriz de risco localmente...</p>
             </div>
 
-            <!-- Final Notice -->
-            <div class="security-note">
-                <span class="note-icon">💡</span>
-                <span><strong>Aviso de Limitação:</strong> Este sistema identifica padrões estruturados conhecidos através de validação semântica e heurísticas locais, mas <strong>não substitui a revisão humana</strong> cuidadosa antes do envio a ferramentas externas de IA.</span>
+            <!-- Results Card -->
+            <section id="results-card" class="card results-card hidden">
+                <div class="results-header" id="results-status-banner">
+                    <div class="status-indicator">
+                        <span id="status-icon" class="status-icon">⚠️</span>
+                        <div>
+                            <h3 id="status-title">Dados sensíveis identificados</h3>
+                            <p id="status-subtitle">Revise as informações antes de enviar para ferramentas de IA.</p>
+                        </div>
+                    </div>
+                    <div class="risk-badge-wrapper">
+                        <span class="risk-label">Risco Geral:</span>
+                        <span id="risk-badge" class="risk-badge risk-high">ALTO</span>
+                    </div>
+                </div>
+
+                <!-- Risk Details & Reasons --> 
+                <div id="risk-breakdown" class="risk-breakdown">
+                    <h4>Fatores de Risco Avaliados</h4>
+                    <ul id="risk-reasons-list"></ul>
+                </div>
+
+                <!-- Detections Grid -->
+                <div id="detections-section" class="detections-section">
+                    <h4>Entidades Detectadas (<span id="detection-count">0</span>)</h4>
+                    <div id="detections-grid" class="detections-grid"></div>
+                </div>
+
+                <!-- Sanitized Prompt Section -->
+                <div class="sanitized-section">
+                    <div class="sanitized-header">
+                        <h4>Prompt Sanitizado (Pronto para IA)</h4>
+                        <div class="sanitized-actions">
+                            <button type="button" id="btn-edit-toggle" class="btn btn-secondary btn-sm">
+                                ✏️ Editar Sanitização
+                            </button>
+                            <button type="button" id="btn-copy" class="btn btn-success btn-sm">
+                                📋 Copiar Prompt Sanitizado
+                            </button>
+                        </div>
+                    </div>
+                    <div class="textarea-wrapper">
+                        <textarea 
+                            id="sanitized-output" 
+                            rows="5" 
+                            readonly
+                        ></textarea>
+                    </div>
+                    <div id="copy-feedback" class="copy-feedback hidden">
+                        ✓ Prompt copiado para a área de transferência!
+                    </div>
+                </div>
+
+                <!-- Final Notice -->
+                <div class="security-note">
+                    <span class="note-icon">💡</span>
+                    <span><strong>Aviso de Limitação:</strong> Este sistema identifica padrões estruturados conhecidos através de validação semântica e heurísticas locais, mas <strong>não substitui a revisão humana</strong> cuidadosa antes do envio a ferramentas externas de IA.</span>
+                </div>
+            </section>
+
+
+            
+        </main>
+
+        <div class="main-container-2">
+            <div class="content-2">
+                <section id="sobre"></section>
             </div>
-        </section>
-    </main>
+        </div>
+    </div>
 
-    <footer class="app-footer">
-        <p>Prompt Sanitizer • Engenharia de Privacidade & Segurança de Aplicações • Execução Local</p>
-    </footer>
 
+    <footer id="footer" class="app-footer"></footer>
+
+    <script src="/static/jquery3.js"></script>
     <script src="/static/app.js"></script>
 </body>
 </html>

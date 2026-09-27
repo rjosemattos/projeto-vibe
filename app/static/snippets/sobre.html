@@ -1,0 +1,270 @@
+<section class="about-section">
+        <h1>O que é o Prompt Sanitizer?</h1>
+
+        <p>
+            O <strong>Prompt Sanitizer</strong> é uma ferramenta que analisa o texto
+            de prompts de IA e remove informações sensíveis
+            antes que elas sejam compartilhadas publicamente, adicionadas a um conjunto
+            de dados ou enviadas para um serviço de terceiros.
+        </p>
+
+        <p>
+            Desenvolvedores, estudantes, pesquisadores e engenheiros de prompts frequentemente
+            copiam e colam prompts de conversas reais em issues do GitHub, posts de
+            blogs, conjuntos de dados ou discussões online — muitas vezes sem perceber
+            que esses prompts ainda contêm informações sensíveis como chaves de API, endereços de e-mail,
+            números de telefone ou strings de conexão com bancos de dados.
+        </p>
+    </section>
+
+
+    <!-- Por que é importante -->
+    <section class="about-section">
+        <h2>Por que a privacidade dos prompts é importante?</h2>
+
+        <p>
+            Ao interagir com um modelo de linguagem de grande escala (LLM) em um
+            ambiente de produção, seus prompts podem conter dados reais da sua aplicação.
+        </p>
+
+        <p>
+            Um desenvolvedor testando um chatbot de atendimento ao cliente, por exemplo,
+            pode inserir o e-mail real de um cliente. Um engenheiro depurando um pipeline
+            de geração aumentada por recuperação (RAG) pode incluir resultados de consultas
+            ao banco de dados contendo IDs de usuários ou números de telefone reais.
+        </p>
+
+        <p>
+            Esses cenários são mais comuns do que muitas equipes imaginam. O impacto
+            não se limita a um constrangimento: pode resultar no comprometimento de uma
+            chave de API, em uma violação de privacidade ou na exposição de informações
+            de identificação pessoal (PII).
+        </p>
+    </section>
+
+
+    <!-- O que detecta -->
+    <section class="about-section">
+        <h2>O que o Prompt Sanitizer detecta?</h2>
+
+        <p>
+            A ferramenta utiliza detecção baseada em padrões para identificar diferentes
+            categorias de dados sensíveis:
+        </p>
+
+        <ul class="detection-list">
+
+            <li>
+                <strong>Chaves de API e Tokens</strong>
+                <span>
+                    Detecta chaves da OpenAI, GitHub, Slack, AWS, Google e segredos
+                    alfanuméricos genéricos.
+                </span>
+            </li>
+
+            <li>
+                <strong>Endereços de E-mail</strong>
+                <span>
+                    Identifica padrões comuns de endereços de e-mail em diferentes domínios.
+                </span>
+            </li>
+
+            <li>
+                <strong>Números de Telefone</strong>
+                <span>
+                    Detecta formatos de números de telefone, incluindo hífens, pontos
+                    e parênteses.
+                </span>
+            </li>
+
+            <li>
+                <strong>URLs e Endpoints</strong>
+                <span>
+                    Identifica URLs HTTP e HTTPS, incluindo endpoints internos de APIs
+                    e servidores de desenvolvimento.
+                </span>
+            </li>
+
+            <li>
+                <strong>Endereços IP</strong>
+                <span>
+                    Detecta endereços IPv4 no formato decimal com pontos.
+                </span>
+            </li>
+
+            <li>
+                <strong>UUIDs e IDs</strong>
+                <span>
+                    Identifica UUIDs no formato padrão utilizados por bancos de dados
+                    e serviços em nuvem.
+                </span>
+            </li>
+
+            <li>
+                <strong>Tokens JWT</strong>
+                <span>
+                    Detecta JSON Web Tokens que começam com o cabeçalho padrão
+                    <code>eyJ</code>.
+                </span>
+            </li>
+
+            <li>
+                <strong>Números de Cartão de Crédito</strong>
+                <span>
+                    Identifica padrões comuns de números de 13 a 16 dígitos.
+                </span>
+            </li>
+
+            <li>
+                <strong>CPF e outros identificadores</strong>
+                <span>
+                    Identifica padrões de números de identificação pessoal.
+                </span>
+            </li>
+
+            <li>
+                <strong>Nomes</strong>
+                <span>
+                    Detecta expressões como "Meu nome é" ou "Pode me chamar de",
+                    seguidas por um nome.
+                </span>
+            </li>
+
+        </ul>
+
+        <p>
+            Cada categoria pode ser ativada ou desativada individualmente, permitindo
+            um controle preciso sobre o que será removido.
+        </p>
+    </section>
+
+
+    <!-- Placeholders -->
+    <section class="about-section">
+        <h2>Como funcionam os placeholders de remoção?</h2>
+
+        <p>
+            Em vez de simplesmente excluir os valores detectados, a ferramenta os
+            substitui por <strong>placeholders identificados</strong>, como:
+        </p>
+
+        <div class="code-example">
+            <code>[API_KEY_REDACTED]</code>
+            <code>[EMAIL_REDACTED]</code>
+        </div>
+
+        <ul>
+            <li>
+                <strong>Preserva a estrutura e a intenção do prompt</strong> —
+                permite entender que havia uma informação naquele local.
+            </li>
+
+            <li>
+                <strong>Facilita a auditoria</strong> —
+                permite revisar o resultado e verificar se a remoção foi correta.
+            </li>
+
+            <li>
+                <strong>Mantém a coerência dos conjuntos de dados</strong> —
+                exemplos continuam demonstrando o padrão da conversa sem expor
+                os dados reais.
+            </li>
+
+            <li>
+                <strong>Cria um registro claro da sanitização</strong> —
+                permite identificar qual tipo de informação foi removida.
+            </li>
+        </ul>
+    </section>
+
+
+    <!-- Dataset -->
+    <section class="about-section">
+        <h2>Sanitização de prompts para conjuntos de dados de IA</h2>
+
+        <p>
+            Um dos principais usos dessa ferramenta é a limpeza de conjuntos de dados
+            utilizados para <strong>fine-tuning e avaliação de modelos</strong>
+            antes de sua publicação.
+        </p>
+
+        <p>
+            Ao desenvolver um LLM personalizado ou realizar fine-tuning de um modelo
+            existente com dados de conversas proprietárias, seu conjunto de treinamento
+            pode conter interações reais de usuários.
+        </p>
+
+        <p>
+            O Prompt Sanitizer torna esse processo mais rápido: basta inserir cada
+            trecho da conversa, realizar a sanitização e copiar a versão limpa.
+        </p>
+
+        <p>
+            Em pipelines de larga escala, os mesmos padrões utilizados pela ferramenta
+            podem ser adaptados para scripts em Python ou Node.js, permitindo o
+            processamento em lote.
+        </p>
+    </section>
+
+
+    <!-- Limitações -->
+    <section class="about-section">
+        <h2>Limitações e boas práticas</h2>
+
+        <p>
+            A detecção baseada em padrões é rápida e eficiente para formatos conhecidos,
+            mas <strong>não é infalível</strong>.
+        </p>
+
+        <ul>
+            <li>
+                <strong>Formatos não convencionais</strong> —
+                alguns segredos podem não ser identificados caso estejam em formatos
+                incomuns.
+            </li>
+
+            <li>
+                <strong>Nomes em contextos diferentes</strong> —
+                um nome isolado no meio de um parágrafo pode não ser identificado.
+            </li>
+
+            <li>
+                <strong>Informações que dependem de contexto</strong> —
+                nomes internos de projetos, terminologias proprietárias ou códigos
+                específicos de uma empresa podem não ser detectados.
+            </li>
+        </ul>
+
+        <div class="warning-box">
+            <strong>Boa prática:</strong>
+            utilize a ferramenta como uma primeira camada de verificação automatizada
+            e realize uma revisão manual do resultado antes de publicá-lo.
+        </div>
+    </section>
+
+
+    <!-- Privacidade -->
+    <section class="about-section privacy-section">
+        <h2>Baseado no navegador e com foco em privacidade</h2>
+
+        <p>
+            O Prompt Sanitizer funciona <strong>inteiramente no lado do cliente</strong>.
+            O texto do seu prompt é processado pelo JavaScript diretamente no navegador
+            e não é enviado para nenhum servidor externo.
+        </p>
+
+        <p>
+            Isso é especialmente importante porque o objetivo da ferramenta é justamente
+            lidar com informações sensíveis — seria contraditório enviar esses dados
+            pela internet para realizar a sanitização.
+        </p>
+
+        <div class="privacy-highlight">
+            <h3>Seus dados permanecem no seu navegador.</h3>
+
+            <p>
+                Não há necessidade de criar uma conta, não armazenamos logs e não
+                realizamos análises sobre os seus prompts.
+            </p>
+        </div>
+    </section>
