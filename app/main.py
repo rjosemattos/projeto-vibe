@@ -8,6 +8,7 @@ from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from app.api.routes import router
+from app.api.rules_routes import rules_router
 from app.core.config import settings
 from app.core.logging import get_logger, setup_logging
 from app.core.security import PayloadLimitMiddleware, SecurityHeadersMiddleware
@@ -39,8 +40,8 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.ALLOWED_ORIGINS,
     allow_credentials=False,
-    allow_methods=["GET", "POST", "OPTIONS"],
-    allow_headers=["Content-Type", "Accept"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=["Content-Type", "Accept", "X-User-Id"],
 )
 
 # Custom global exception handler: prevents internal tracebacks leaking in responses
@@ -56,6 +57,7 @@ async def global_exception_handler(request: Request, exc: Exception):
 
 # Include API routes
 app.include_router(router)
+app.include_router(rules_router)
 
 # Serve static assets
 static_dir = os.path.join(os.path.dirname(__file__), "static")

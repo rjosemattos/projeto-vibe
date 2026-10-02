@@ -35,6 +35,10 @@ class Settings(BaseSettings):
     # Logging
     LOG_LEVEL: str = "INFO"
 
+    # Encryption and Privacy Settings
+    ENCRYPTION_KEY: str = ""
+    BLIND_INDEX_KEY: str = ""
+
 
 settings = Settings()
 

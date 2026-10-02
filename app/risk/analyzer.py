@@ -49,6 +49,12 @@ class RiskAnalyzer:
                 "Combinação de documento oficial com dados de contato, elevando a probabilidade de ataques de engenharia social ou roubo de identidade."
             )
 
+        # 5. Custom confidential rules evaluation
+        if "REGRA_CUSTOMIZADA" in types:
+            reasons.append(
+                "Identificação de termos confidenciais sob regras dinâmicas personalizadas de ofuscação."
+            )
+
         if total_count > 3:
             reasons.append(
                 f"Volume elevado de entidades sensíveis detectadas ({total_count} ocorrências)."

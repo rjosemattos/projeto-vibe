@@ -62,16 +62,19 @@ O sistema foi estruturado com forte desacoplamento, responsabilidade única e pr
 
 ### Componentes Principais
 
-* `app/core/`: Configurações de ambiente (`config.py`), middlewares de headers e tamanho de payload (`security.py`), e logging seguro com redaction automático (`logging.py`).
+* `app/core/`: Configurações de ambiente (`config.py`), criptografia autenticada AES-256-GCM e blind indexing (`crypto.py`), middlewares de headers e tamanho de payload (`security.py`), e logging seguro com redaction automático (`logging.py`).
 * `app/detection/`:
   * `validators.py`: Implementações semânticas matemáticas puras (Módulo 11 para CPF e CNPJ; Algoritmo de Luhn para cartões).
   * `base.py`: Contrato abstrato `BaseDetector` e estrutura `Detection`.
   * `detectors/`: Módulos de detecção especializados por entidade.
   * `engine.py`: Orquestrador de detecções e algoritmo de resolução de colisões de spans.
 * `app/risk/`: Avaliador transparente com matriz de severidade e pontuação contextual (0 a 100).
-* `app/sanitization/`: Motor de substituição reversa de índices garantindo consistência referencial (`[CPF_USUARIO_1]`, `[CPF_USUARIO_2]`).
-* `app/api/`: Rotas FastAPI seguras (`/health`, `/api/v1/analyze`).
-* `app/static/`: Interface gráfica minimalista, profissional e responsiva.
+* `app/sanitization/`:
+  * `engine.py`: Motor de substituição reversa de índices garantindo consistência referencial (`[CPF_USUARIO_1]`, `[CPF_USUARIO_2]`).
+  * `custom_engine.py`: Motor determinístico em passe único para regras dinâmicas e palavras confidenciais personalizadas.
+* `app/repositories/`: Repositório criptografado em repouso (`rules_repository.py`) com isolamento multi-inquilino.
+* `app/api/`: Rotas FastAPI seguras (`/health`, `/api/v1/analyze` e o CRUD `/api/v1/rules`).
+* `app/static/`: Interface gráfica moderna com suporte completo ao gerenciamento de regras e análise em tempo real.
 
 ---
 

@@ -7,6 +7,12 @@ from app.models.response import (
     RiskReport,
     SeverityLevel,
 )
+from app.models.rules import (
+    ConfidentialRuleRecord,
+    RuleCreateRequest,
+    RuleResponse,
+    RuleUpdateRequest,
+)
 
 __all__ = [
     "PromptAnalyzeRequest",
@@ -14,5 +20,9 @@ __all__ = [
     "DetectionItem",
     "RiskReport",
     "SeverityLevel",
+    "RuleCreateRequest",
+    "RuleUpdateRequest",
+    "RuleResponse",
+    "ConfidentialRuleRecord",
 ]
 

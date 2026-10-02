@@ -43,6 +43,7 @@
                 <h2>Prompt de Entrada</h2>
                 <div class="example-presets">
                     <span class="preset-label">Exemplos rápidos:</span>
+                    <button type="button" class="btn-preset" id="preset-custom">Termo CESAR + CPF</button>
                     <button type="button" class="btn-preset" id="preset-cpf-email">CPF + E-mail</button>
                     <button type="button" class="btn-preset" id="preset-secrets">API Key + Senha</button>
                     <button type="button" class="btn-preset" id="preset-card">Cartão de Crédito</button>
@@ -67,6 +68,68 @@
                     <span class="btn-icon">🔍</span> Analisar Prompt
                 </button>
                 <button type="button" id="btn-clear" class="btn btn-secondary">Limpar</button>
+            </div>
+        </section>
+
+        <!-- Confidential Rules Management Card -->
+        <section class="card rules-card">
+            <div class="card-header">
+                <div>
+                    <h2>Termos Confidenciais Personalizados (CRUD)</h2>
+                    <p class="section-desc">Gerencie palavras e segredos que devem ser ofuscados dinamicamente antes do envio à IA. Criptografia em repouso e zero retenção em plain text.</p>
+                </div>
+                <button type="button" id="btn-toggle-new-rule" class="btn btn-secondary btn-sm">
+                    + Adicionar Termo
+                </button>
+            </div>
+
+            <!-- New Rule Form (Toggleable) -->
+            <form id="new-rule-form" class="rule-form hidden">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="rule-term">Termo Sensível (ex: CESAR ou Nome do Projeto):</label>
+                        <input type="text" id="rule-term" placeholder="Ex: CESAR" required minlength="2" maxlength="150" autocomplete="off" />
+                    </div>
+                    <div class="form-group">
+                        <label for="rule-tag">Tag de Substituição (ex: [COMPANY_SENSITIVE]):</label>
+                        <input type="text" id="rule-tag" placeholder="Ex: [COMPANY_SENSITIVE]" required maxlength="40" autocomplete="off" />
+                    </div>
+                </div>
+                <div class="form-options">
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="rule-whole-word" checked />
+                        <span>Apenas palavra inteira (evita substituição acidental dentro de outras palavras)</span>
+                    </label>
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="rule-case-sensitive" />
+                        <span>Diferenciar maiúsculas/minúsculas (Case-sensitive)</span>
+                    </label>
+                </div>
+                <div class="form-actions">
+                    <button type="submit" id="btn-save-rule" class="btn btn-primary btn-sm">🔒 Salvar Regra Cifrada</button>
+                    <button type="button" id="btn-cancel-rule" class="btn btn-secondary btn-sm">Cancelar</button>
+                    <span id="rule-form-feedback" class="form-feedback hidden"></span>
+                </div>
+            </form>
+
+            <!-- Rules List -->
+            <div class="rules-list-container">
+                <div id="rules-empty-state" class="empty-rules">
+                    Nenhuma regra personalizada cadastrada. Clique em <strong>+ Adicionar Termo</strong> para registrar termos confidenciais com substituição dinâmica.
+                </div>
+                <div id="rules-table-wrapper" class="rules-table-wrapper hidden">
+                    <table class="rules-table">
+                        <thead>
+                            <tr>
+                                <th>Termo Protegido</th>
+                                <th>Tag Substituta</th>
+                                <th>Modo de Busca</th>
+                                <th>Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody id="rules-table-body"></tbody>
+                    </table>
+                </div>
             </div>
         </section>
 
