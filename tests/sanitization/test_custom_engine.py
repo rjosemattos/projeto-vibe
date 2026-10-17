@@ -81,7 +81,7 @@ def test_custom_engine_partial_match_when_enabled():
     text = "Temos um bug e outro debugger aqui."
     sanitized, matches = CustomObfuscationEngine.apply(text, rules)
 
-    assert sanitized == "Temos um [DEFEITO] e outro [DEFEITO]ger aqui."
+    assert sanitized == "Temos um [DEFEITO] e outro de[DEFEITO]ger aqui."
     assert len(matches) == 2
 
 
