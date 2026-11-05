@@ -9,8 +9,10 @@ from app.detection.detectors import (
     CreditCardDetector,
     CredentialsDetector,
     EmailDetector,
+    IPAddressDetector,
     JWTDetector,
     PhoneDetector,
+    PrivateKeyDetector,
 )
 from app.models.response import SeverityLevel
 
@@ -33,6 +35,7 @@ class DetectionEngine:
         else:
             self.detectors = [
                 # Critical credentials first
+                PrivateKeyDetector(),
                 APIKeyDetector(),
                 JWTDetector(),
                 CredentialsDetector(),
@@ -43,6 +46,7 @@ class DetectionEngine:
                 # Medium severity personal contact data
                 EmailDetector(),
                 PhoneDetector(),
+                IPAddressDetector(),
             ]
 
     def analyze(self, text: str) -> List[Detection]:

@@ -42,3 +42,8 @@ class Settings(BaseSettings):
 
 settings = Settings()
 
+# Keep CORS aligned with a custom PORT (the web UI is same-origin, but this avoids surprises)
+for _origin in (f"http://localhost:{settings.PORT}", f"http://127.0.0.1:{settings.PORT}"):
+    if _origin not in settings.ALLOWED_ORIGINS:
+        settings.ALLOWED_ORIGINS.append(_origin)
+

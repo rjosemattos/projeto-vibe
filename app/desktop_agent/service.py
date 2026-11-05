@@ -21,6 +21,7 @@ from uuid import UUID, uuid4
 
 from app.core.crypto import RuleCryptoService
 from app.core.logging import get_logger
+from app.core.paths import get_data_dir
 from app.detection.base import Detection
 from app.detection.engine import DetectionEngine
 from app.models.response import SeverityLevel
@@ -39,22 +40,7 @@ logger = get_logger(__name__)
 
 def get_default_storage_path() -> Path:
     """Returns the platform-appropriate encrypted storage path (prioritizing Windows %APPDATA% with portable fallback)."""
-    if sys.platform == "win32":
-        appdata = os.getenv("APPDATA")
-        if appdata:
-            base_dir = Path(appdata) / "PromptSanitizer"
-        else:
-            base_dir = Path.home() / "AppData" / "Roaming" / "PromptSanitizer"
-    else:
-        base_dir = Path.home() / ".config" / "prompt-sanitizer"
-
-    try:
-        base_dir.mkdir(parents=True, exist_ok=True)
-        return base_dir / "rules.enc.json"
-    except OSError:
-        portable_dir = Path(__file__).resolve().parent.parent.parent / ".data"
-        portable_dir.mkdir(parents=True, exist_ok=True)
-        return portable_dir / "rules.enc.json"
+    return get_data_dir() / "rules.enc.json"
 
 
 @dataclass
@@ -164,6 +150,13 @@ class DesktopSanitizerService:
                 self._rules = loaded
             except Exception as exc:
                 logger.error("Failed to load encrypted rules store: %s", type(exc).__name__)
+                # Preserve the unreadable file so the next save cannot silently destroy user data
+                try:
+                    backup = self.storage_path.with_suffix(".corrupt")
+                    self.storage_path.replace(backup)
+                    logger.error("Corrupt rules store moved to %s", backup.name)
+                except OSError:
+                    pass
 
     def _save_encrypted_store(self) -> None:
         """Persists ONLY AES-256-GCM ciphertexts and HMAC blind indexes to disk."""

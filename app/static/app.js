@@ -47,6 +47,14 @@ document.addEventListener("DOMContentLoaded", () => {
 
     promptInput.addEventListener("input", updateCharCount);
 
+    // Ctrl/Cmd + Enter analyzes the prompt from the textarea
+    promptInput.addEventListener("keydown", (e) => {
+        if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
+            e.preventDefault();
+            btnAnalyze.click();
+        }
+    });
+
     // Preset handlers
     Object.keys(presets).forEach((presetId) => {
         const btn = document.getElementById(presetId);

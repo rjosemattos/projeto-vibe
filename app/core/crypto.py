@@ -47,8 +47,7 @@ class RuleCryptoService:
             except Exception:
                 self._aes_key = hashlib.sha256(enc_key_str.encode("utf-8")).digest()
         else:
-            # Deterministic dev fallback key
-            self._aes_key = hashlib.sha256(b"prompt-sanitizer-dev-aes-key-change-in-prod").digest()
+            self._aes_key = self._local_key("aes", legacy=b"prompt-sanitizer-dev-aes-key-change-in-prod")
 
         if hmac_key:
             self._hmac_key = hmac_key
@@ -62,10 +61,54 @@ class RuleCryptoService:
             except Exception:
                 self._hmac_key = hashlib.sha256(blind_key_str.encode("utf-8")).digest()
         else:
-            # Deterministic dev fallback blind index key
-            self._hmac_key = hashlib.sha256(b"prompt-sanitizer-dev-blind-index-key-change-in-prod").digest()
+            self._aes_key = self._local_key("aes", legacy=b"prompt-sanitizer-dev-aes-key-change-in-prod")
+
+        if hmac_key:
+            self._hmac_key = hmac_key
+        elif blind_key_str:
+            try:
+                decoded = base64.b64decode(blind_key_str)
+                if len(decoded) != 32:
+                    self._hmac_key = hashlib.sha256(decoded).digest()
+                else:
+                    self._hmac_key = decoded
+            except Exception:
+                self._hmac_key = hashlib.sha256(blind_key_str.encode("utf-8")).digest()
+        else:
+            self._hmac_key = self._local_key("blind", legacy=b"prompt-sanitizer-dev-blind-index-key-change-in-prod")
 
         self._aesgcm = AESGCM(self._aes_key)
+
+    @staticmethod
+    def _local_key(name: str, legacy: bytes) -> bytes:
+        """Returns a random per-installation key persisted in the user data dir (file mode 0600).
+
+        Previously a hardcoded, publicly known key was used. To keep existing encrypted stores
+        readable, the legacy key is still used when a rules store already exists but no local
+        key file has been generated yet.
+        """
+        try:
+            from app.core.paths import get_data_dir
+
+            data_dir = get_data_dir()
+            key_path = data_dir / f".{name}.key"
+            if key_path.exists():
+                raw = base64.b64decode(key_path.read_text(encoding="ascii").strip())
+                if len(raw) == 32:
+                    return raw
+            elif (data_dir / "rules.enc.json").exists():
+                return hashlib.sha256(legacy).digest()
+
+            key = secrets.token_bytes(32)
+            tmp_path = key_path.with_suffix(".tmp")
+            fd = os.open(tmp_path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+            with os.fdopen(fd, "w", encoding="ascii") as fh:
+                fh.write(base64.b64encode(key).decode("ascii"))
+            os.replace(tmp_path, key_path)
+            return key
+        except Exception as exc:
+            logger.error("Could not persist local key (%s); using legacy dev key.", type(exc).__name__)
+            return hashlib.sha256(legacy).digest()
 
     def encrypt(self, plain_text: str) -> str:
         """Encrypts a plain text term using AES-256-GCM with a unique 12-byte random nonce.
