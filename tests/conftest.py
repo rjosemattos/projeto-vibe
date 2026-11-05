@@ -1,5 +1,11 @@
 """Pytest fixtures and configuration."""
 
+import os
+import tempfile
+
+# Isolate tests from the real user data directory (keys, rules store) BEFORE importing the app.
+os.environ.setdefault("PROMPT_SANITIZER_DATA_DIR", tempfile.mkdtemp(prefix="prompt-sanitizer-tests-"))
+
 import pytest
 from httpx import ASGITransport, AsyncClient
 from app.detection.engine import DetectionEngine

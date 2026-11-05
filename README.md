@@ -49,6 +49,8 @@ O projeto possui arquitetura modular, desacoplada e processamento **100% local**
          │ • APIKeyDetector (OpenAI sk-..., AWS AKIA..., GitHub)    │
          │ • JWTDetector (Tokens Base64url)                         │
          │ • CredentialsDetector (Bearer, Passwords, Basic Auth)    │
+          │ • IPAddressDetector (IPv4 validado)                      │
+          │ • PrivateKeyDetector (blocos PEM/OpenSSH de chave privada)│
          └──────────────────────────────────────────────────────────┘
                                     ↓
                   [ 2. Overlap & Conflict Resolution ]
@@ -86,8 +88,8 @@ O **Agente Desktop Global** permite usar o Prompt Sanitizer **diretamente dentro
 ### Pré-requisitos
 * Python 3.10 ou superior instalado no Windows.
 
-### Instalação Rápida das Dependências
-No terminal (PowerShell ou CMD) na pasta do projeto:
+### Instalação
+Nada para instalar manualmente: o `start_agent_windows.bat` localiza o Python (`py`/`python`), cria o `.venv`, instala as dependências (somente quando `requirements.txt` muda) e inicia o agente. Instalação manual, se preferir:
 
 ```powershell
 python -m venv .venv
@@ -95,16 +97,19 @@ python -m venv .venv
 pip install -r requirements.txt
 ```
 
+> Se o PowerShell bloquear o `Activate.ps1`, use `.venv\Scripts\python.exe` diretamente ou rode `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned`.
+
 ### Opção A: Iniciar com Clique Duplo (Modo Recomendado no Windows)
 Basta dar **dois cliques** no arquivo:
 👉 **`start_agent_windows.bat`**
 
-*(Ele detecta automaticamente o `.venv` e inicia o agente em segundo plano via `pythonw`, abrindo o HUD flutuante no canto inferior direito da tela e o ícone de escudo na bandeja do Windows perto do relógio).*
+*(Ele cria o `.venv` e instala as dependências na primeira execução e inicia o agente em segundo plano via `pythonw`; use `start_agent_windows.bat --console` para ver logs e erros, abrindo o HUD flutuante no canto inferior direito da tela e o ícone de escudo na bandeja do Windows perto do relógio).*
 
 ### Opção B: Iniciar via Terminal
 ```powershell
 python run_desktop_agent.py
 ```
+Apenas uma instância roda por vez; abrir uma segunda exibe um aviso.
 
 ### Opção C: Gerar um Executável `.exe` Único para Windows
 Caso queira empacotar todo o projeto em um único arquivo executável (`dist\PromptSanitizerAgent.exe`) que roda sem precisar abrir terminal:
@@ -161,14 +166,19 @@ Além do Agente Desktop, você pode rodar o servidor FastAPI com a interface web
   pip install -r requirements.txt
   ```
 
-### Passo 2: Iniciar o servidor Uvicorn
+### Passo 2: Iniciar o servidor
+Atalhos que criam o `.venv`, instalam as dependências e abrem o navegador (escolhem outra porta se a 8000 estiver ocupada):
 ```bash
-uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
+./start_server.sh              # Linux / macOS
+start_server_windows.bat       # Windows
+python run_server.py --port 9000 --no-browser   # direto
 ```
+Ou manualmente: `uvicorn app.main:app --reload --host 127.0.0.1 --port 8000`.
 
 ### Passo 3: Acessar no Navegador
 * **Interface Web Principal:** [http://localhost:8000](http://localhost:8000)
-* **Documentação Interativa da API (Swagger UI):** [http://localhost:8000/docs](http://localhost:8000/docs)
+* **Documentação Interativa da API (Swagger UI):** [http://localhost:8000/docs](http://localhost:8000/docs) — disponível apenas com `PROMPT_SANITIZER_DEBUG=True` (veja `.env.example`).
+* **Atalho na interface:** `Ctrl + Enter` analisa o prompt; o layout é responsivo para celular/tablet.
 
 ### Principais Endpoints da API REST
 * `GET /health` — Verificação de integridade do serviço.
@@ -182,15 +192,26 @@ uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
 
 ## 🧪 5. Execução dos Testes Automatizados
 
-O projeto conta com **74 testes automatizados** cobrindo validadores matemáticos (CPF, CNPJ, Luhn), criptografia AES-256-GCM, blind indexing HMAC-SHA256, motor regex de passe único, API CRUD, proteção anti-ReDoS e o Agente Desktop Global:
+O projeto conta com **84 testes automatizados** cobrindo validadores matemáticos (CPF, CNPJ, Luhn), criptografia AES-256-GCM, blind indexing HMAC-SHA256, motor regex de passe único, API CRUD, proteção anti-ReDoS e o Agente Desktop Global:
 
 ```bash
-# Executar toda a suíte de testes (74 testes)
+# Instalar dependências de desenvolvimento
+pip install -r requirements-dev.txt
+
+# Executar toda a suíte de testes
 pytest -v
 
 # Executar o auto-teste rápido do Agente Desktop no terminal
 python run_desktop_agent.py --self-test
 ```
+
+### 🧰 Sanitizador de Linha de Comando (Windows, Linux e macOS)
+Sem interface gráfica, ideal para scripts, hooks de pre-commit ou pipes:
+```bash
+python run_desktop_agent.py --sanitize "CPF 123.456.789-09, IP 10.0.0.5"
+cat prompt.txt | python run_desktop_agent.py --sanitize - --json
+```
+O código de saída é `10` quando dados sensíveis foram encontrados e `0` quando o texto está limpo.
 
 ---
 
@@ -211,13 +232,9 @@ python run_desktop_agent.py --self-test
 
 ---
 
-## 📚 7. Documentação Técnica e Apresentações (`docs/`)
+## 🔑 7. Chaves de Criptografia
 
-O diretório [`docs/`](file:///home/rodrigo-pascaretta/Documentos/projeto-viber-cesar/projeto-vibe/docs) contém a documentação de arquitetura e as apresentações executivas do projeto:
-
-* 📄 **[`docs/PROMPT_SANITIZER_DOCUMENTACAO_TECNICA.pdf`](file:///home/rodrigo-pascaretta/Documentos/projeto-viber-cesar/projeto-vibe/docs/PROMPT_SANITIZER_DOCUMENTACAO_TECNICA.pdf):** Guia técnico e arquitetural aprofundado (18 páginas) cobrindo fluxo de dados, comparativo de tecnologias, criptografia, OWASP e modelo de dados.
-* 🌐 **[`docs/apresentacao_sr1.html`](file:///home/rodrigo-pascaretta/Documentos/projeto-viber-cesar/projeto-vibe/docs/apresentacao_sr1.html)** & 📄 **[`docs/apresentacao_sr1.pdf`](file:///home/rodrigo-pascaretta/Documentos/projeto-viber-cesar/projeto-vibe/docs/apresentacao_sr1.pdf):** Apresentação estruturada em 9 sessões (Imersão, Persona, Brainwriting, Solução, Ciclo de Vida, Backlog MoSCoW, Pontos Fortes/Melhorias e Próximos Passos).
-* 🌐 **[`docs/apresentacao.html`](file:///home/rodrigo-pascaretta/Documentos/projeto-viber-cesar/projeto-vibe/docs/apresentacao.html)** & 📄 **[`docs/PROMPT_SANITIZER_APRESENTACAO.pdf`](file:///home/rodrigo-pascaretta/Documentos/projeto-viber-cesar/projeto-vibe/docs/PROMPT_SANITIZER_APRESENTACAO.pdf):** Apresentação executiva em 8 slides.
+Sem configuração, cada instalação gera chaves **aleatórias** (`.aes.key` e `.blind.key`, permissão `0600`) em `%APPDATA%\PromptSanitizer` (Windows) ou `~/.config/prompt-sanitizer` (Linux/macOS). Antes, uma chave fixa e pública era usada por padrão; cofres já existentes continuam legíveis com a chave legada até serem recriados. Para usar chaves próprias, defina `PROMPT_SANITIZER_ENCRYPTION_KEY` / `PROMPT_SANITIZER_BLIND_INDEX_KEY` (Base64 de 32 bytes). Use `PROMPT_SANITIZER_DATA_DIR` para mudar a pasta de dados. **Faça backup da pasta**: sem as chaves, as regras não podem ser decifradas. Um `rules.enc.json` ilegível é preservado como `rules.enc.corrupt`.
 
 ---
 

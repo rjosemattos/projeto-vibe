@@ -8,6 +8,8 @@ from app.detection.detectors.phone import PhoneDetector
 from app.detection.detectors.jwt import JWTDetector
 from app.detection.detectors.api_key import APIKeyDetector
 from app.detection.detectors.credentials import CredentialsDetector
+from app.detection.detectors.ip_address import IPAddressDetector
+from app.detection.detectors.private_key import PrivateKeyDetector
 
 __all__ = [
     "CPFDetector",
@@ -18,5 +20,6 @@ __all__ = [
     "JWTDetector",
     "APIKeyDetector",
     "CredentialsDetector",
+    "IPAddressDetector",
+    "PrivateKeyDetector",
 ]
-

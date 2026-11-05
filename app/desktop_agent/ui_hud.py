@@ -45,6 +45,7 @@ class RulesManagerWindow(tk.Toplevel):
 
         self.title("Prompt Sanitizer — Regras Confidenciais (CRUD)")
         self.geometry("680x500")
+        self.minsize(520, 380)
         self.configure(bg=BG_DARK)
         self.attributes("-topmost", True)
         self.resizable(True, True)
@@ -336,14 +337,17 @@ class PromptSanitizerDesktopApp:
         self.root.title("Prompt Sanitizer")
         self.root.configure(bg=BG_DARK)
         self.root.attributes("-topmost", True)
-        self.root.resizable(False, False)
+        self.root.resizable(True, True)
 
-        # Position HUD in bottom-right of primary screen
-        hud_w, hud_h = 390, 345
+        # Position HUD in bottom-right of primary screen (clamped to small displays)
         screen_w = self.root.winfo_screenwidth()
         screen_h = self.root.winfo_screenheight()
-        pos_x = max(20, screen_w - hud_w - 28)
-        pos_y = max(20, screen_h - hud_h - 75)
+        hud_w = min(390, max(300, screen_w - 40))
+        hud_h = min(345, max(280, screen_h - 100))
+        self.root.minsize(min(hud_w, 340), min(hud_h, 300))
+        self.root.maxsize(max(hud_w, 700), max(hud_h, 600))
+        pos_x = max(0, screen_w - hud_w - 28)
+        pos_y = max(0, screen_h - hud_h - 75)
         self.root.geometry(f"{hud_w}x{hud_h}+{pos_x}+{pos_y}")
 
         # Thread-safe UI event queue
@@ -529,6 +533,11 @@ class PromptSanitizerDesktopApp:
             anchor="w",
         )
         self.event_banner.pack(fill=tk.BOTH, expand=True)
+        # Keep banner text wrapping in sync with the (resizable) HUD width
+        telemetry_card.bind(
+            "<Configure>",
+            lambda e: self.event_banner.configure(wraplength=max(120, e.width - 40)),
+        )
 
         # 5. Footer Buttons (CRUD & Hide to Tray)
         footer_row = tk.Frame(main_frame, bg=BG_DARK)

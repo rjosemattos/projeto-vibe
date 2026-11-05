@@ -70,3 +70,6 @@ logs/
 # OS files
 .DS_Store
 Thumbs.db
+
+# Local data (keys, encrypted rules)
+.data/

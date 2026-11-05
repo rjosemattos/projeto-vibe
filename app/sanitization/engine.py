@@ -22,6 +22,8 @@ class SanitizationEngine:
         "AUTH_HEADER": "AUTH_TOKEN",
         "URL_PASSWORD": "CREDENTIAL",
         "CREDENTIAL": "CREDENTIAL",
+        "IP_ADDRESS": "IP_USUARIO",
+        "PRIVATE_KEY": "CHAVE_PRIVADA",
     }
 
     def sanitize(self, text: str, detections: List[Detection]) -> str:

@@ -49,6 +49,9 @@ class RiskAnalyzer:
                 "Combinação de documento oficial com dados de contato, elevando a probabilidade de ataques de engenharia social ou roubo de identidade."
             )
 
+        if "IP_ADDRESS" in types:
+            reasons.append("Presença de endereços IP que podem expor a topologia da infraestrutura.")
+
         # 5. Custom confidential rules evaluation
         if "REGRA_CUSTOMIZADA" in types:
             reasons.append(
