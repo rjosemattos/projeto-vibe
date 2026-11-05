@@ -14,6 +14,32 @@
         return allowedDomains.some((d) => lower.endsWith("@" + d.replace(/^@/, "")));
     }
 
+    async function verifyTokenWithBackend(accessToken) {
+        try {
+            const res = await fetch("/api/v1/auth/me", {
+                credentials: "same-origin",
+                headers: {
+                    Accept: "application/json",
+                    Authorization: "Bearer " + accessToken,
+                },
+            });
+            if (!res.ok) return false;
+            const me = await res.json();
+            return !!me.authenticated;
+        } catch (e) {
+            return false;
+        }
+    }
+
+    async function clearSupabaseSession() {
+        if (!supabaseClient) return;
+        try {
+            await supabaseClient.auth.signOut({ scope: "local" });
+        } catch (e) {
+            try { await supabaseClient.auth.signOut(); } catch (err) { /* ignore */ }
+        }
+    }
+
     async function checkAuthStatus() {
         try {
             const cfg = await fetch("/api/v1/auth/config").then((r) => r.json());
@@ -28,16 +54,20 @@
             if (cfg.supabase_enabled && window.supabase) {
                 supabaseClient = window.supabase.createClient(cfg.supabase_url, cfg.supabase_anon_key);
                 const { data: { session } } = await supabaseClient.auth.getSession();
-                if (session) {
+                if (session && session.access_token) {
                     const email = session.user?.email || "";
                     if (!isDomainAllowed(email)) {
-                        await supabaseClient.auth.signOut();
+                        await clearSupabaseSession();
                         errorBox.textContent = `Acesso negado: a conta ${email} não pertence ao domínio @${allowedDomains[0]}.`;
                         errorBox.classList.remove("hidden");
                         return;
                     }
-                    window.location.replace("/");
-                    return;
+                    const validOnBackend = await verifyTokenWithBackend(session.access_token);
+                    if (validOnBackend) {
+                        window.location.replace("/");
+                        return;
+                    }
+                    await clearSupabaseSession();
                 }
             }
 
@@ -69,6 +99,7 @@
         }
 
         button.disabled = true;
+        let supabaseAuthError = null;
 
         // 1. Try Supabase Auth (Email + Password) if configured
         if (supabaseClient) {
@@ -77,16 +108,26 @@
                     email: username,
                     password: password,
                 });
-                if (!error && data?.session) {
+                if (error) {
+                    supabaseAuthError = error.message;
+                } else if (data?.session) {
                     const email = data.session.user?.email || username;
                     if (!isDomainAllowed(email)) {
-                        await supabaseClient.auth.signOut();
+                        await clearSupabaseSession();
                         errorBox.textContent = `Acesso negado: a conta ${email} não pertence ao domínio @${allowedDomains[0]}.`;
                         errorBox.classList.remove("hidden");
                         button.disabled = false;
                         return;
                     }
-                    window.location.replace("/");
+                    const validOnBackend = await verifyTokenWithBackend(data.session.access_token);
+                    if (validOnBackend) {
+                        window.location.replace("/");
+                        return;
+                    }
+                    await clearSupabaseSession();
+                    errorBox.textContent = "Não foi possível validar o token de sessão no servidor.";
+                    errorBox.classList.remove("hidden");
+                    button.disabled = false;
                     return;
                 }
             } catch (sbErr) {
@@ -104,7 +145,11 @@
             });
             if (res.ok) { window.location.replace("/"); return; }
             const data = await res.json().catch(() => ({}));
-            errorBox.textContent = typeof data.detail === "string" ? data.detail : "E-mail ou senha incorretos.";
+            if (supabaseAuthError && /Email not confirmed/i.test(supabaseAuthError)) {
+                errorBox.textContent = "Confirme seu e-mail no link enviado pelo Supabase antes de entrar.";
+            } else {
+                errorBox.textContent = typeof data.detail === "string" ? data.detail : "E-mail ou senha incorretos.";
+            }
         } catch (err) {
             errorBox.textContent = "Sem conexão com o servidor.";
         }

@@ -82,7 +82,11 @@ def get_current_user_id(
 
 async def get_decrypted_rules_for_user(user_id: str) -> List[DecryptedRule]:
     """Helper que recupera e decifra regras em memória exclusivamente no escopo da requisição."""
-    records = await rules_repository.list_by_user(user_id)
+    try:
+        records = await rules_repository.list_by_user(user_id)
+    except Exception as exc:
+        logger.error("Falha ao consultar regras do usuário %s: %s", user_id, type(exc).__name__)
+        return []
     decrypted_list: List[DecryptedRule] = []
     for r in records:
         try:
@@ -172,7 +176,14 @@ async def list_rules(user_id: str = Depends(get_current_user_id)):
     
     Garantia: O termo original é retornado apenas em formato mascarado para a UI.
     """
-    records = await rules_repository.list_by_user(user_id)
+    try:
+        records = await rules_repository.list_by_user(user_id)
+    except Exception as exc:
+        logger.error("Erro ao listar regras para %s: %s", user_id, type(exc).__name__)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Não foi possível carregar os termos confidenciais no banco de dados.",
+        )
     output: List[RuleResponse] = []
 
     for r in records:
