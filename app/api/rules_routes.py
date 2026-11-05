@@ -2,7 +2,10 @@
 
 from typing import List, Optional
 from uuid import UUID, uuid4
-from fastapi import APIRouter, Depends, Header, HTTPException, status
+from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
+from app.auth import service as auth_service
+from app.auth.routes import COOKIE_NAME, SAFE_METHODS, _origin_ok
+from app.core.config import settings
 from app.core.crypto import RuleCryptoService
 from app.core.logging import get_logger
 from app.models.rules import (
@@ -11,7 +14,7 @@ from app.models.rules import (
     RuleResponse,
     RuleUpdateRequest,
 )
-from app.repositories.rules_repository import ConfidentialRulesRepository
+from app.repositories.sqlite_rules_repository import RepositorySelector
 from app.sanitization.custom_engine import DecryptedRule
 
 logger = get_logger("rules_api")
@@ -19,16 +22,55 @@ rules_router = APIRouter(prefix="/api/v1/rules", tags=["Confidential Rules"])
 
 # Instâncias seguras de serviço compartilhadas neste módulo
 crypto_service = RuleCryptoService()
-rules_repository = ConfidentialRulesRepository()
+rules_repository = RepositorySelector()
+_user_crypto: dict = {}
+
+
+def crypto_for(user_id: str) -> RuleCryptoService:
+    """Per-user derived keys when hosted (auth enabled); shared local keys otherwise."""
+    if not settings.AUTH_ENABLED:
+        return crypto_service
+    if user_id not in _user_crypto:
+        _user_crypto[user_id] = crypto_service.for_user(user_id)
+    return _user_crypto[user_id]
 
 
 def get_current_user_id(
+    request: Request,
     x_user_id: Optional[str] = Header(
         default="default_tenant",
-        description="Identificador único do usuário/tenant para isolamento das regras.",
-    )
+        description="Somente modo local (AUTH_ENABLED=false): identificador do tenant.",
+    ),
 ) -> str:
-    """Extrai o identificador de usuário/tenant via cabeçalho HTTP seguro."""
+    """Resolves the tenant.
+
+    Priority:
+    1. Authorization: Bearer <JWT> (Supabase / Google OAuth).
+    2. Cookie-based session (Hosted standalone mode).
+    3. Header X-User-Id (Local single-user mode).
+    """
+    # 1. Bearer Token (Supabase / Google Auth)
+    auth_header = request.headers.get("authorization", "")
+    if auth_header.startswith("Bearer "):
+        token = auth_header[7:].strip()
+        from app.auth.supabase_jwt import verify_supabase_jwt
+        payload = verify_supabase_jwt(token)
+        if payload and "sub" in payload:
+            return f"sb_{payload['sub']}"
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Token de autorização inválido ou expirado.")
+
+    # 2. Cookie session (Hosted mode)
+    if settings.AUTH_ENABLED or settings.SUPABASE_URL:
+        session = auth_service.resolve_session(request.cookies.get(COOKIE_NAME))
+        if session is None:
+            raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Sessão inválida ou expirada.")
+        if request.method not in SAFE_METHODS and (
+            not _origin_ok(request)
+            or not auth_service.csrf_valid(session, request.headers.get("x-csrf-token"))
+        ):
+            raise HTTPException(status.HTTP_403_FORBIDDEN, "Falha na verificação CSRF.")
+        return f"u{session.user_id}"
+
     user = (x_user_id or "default_tenant").strip()
     if not user:
         raise HTTPException(
@@ -44,7 +86,7 @@ async def get_decrypted_rules_for_user(user_id: str) -> List[DecryptedRule]:
     decrypted_list: List[DecryptedRule] = []
     for r in records:
         try:
-            term = crypto_service.decrypt(r.encrypted_term)
+            term = crypto_for(user_id).decrypt(r.encrypted_term)
             decrypted_list.append(
                 DecryptedRule(
                     id=str(r.id),
@@ -78,8 +120,8 @@ async def create_rule(
     - Blind index gerado para detecção de duplicatas.
     """
     try:
-        encrypted_term = crypto_service.encrypt(payload.term)
-        blind_index = crypto_service.compute_blind_index(payload.term)
+        encrypted_term = crypto_for(user_id).encrypt(payload.term)
+        blind_index = crypto_for(user_id).compute_blind_index(payload.term)
 
         record = ConfidentialRuleRecord(
             id=uuid4(),
@@ -135,7 +177,7 @@ async def list_rules(user_id: str = Depends(get_current_user_id)):
 
     for r in records:
         try:
-            term = crypto_service.decrypt(r.encrypted_term)
+            term = crypto_for(user_id).decrypt(r.encrypted_term)
             masked = crypto_service.mask_term(term)
         except Exception:
             masked = "[PROTEGIDO]"
@@ -172,7 +214,7 @@ async def get_rule(
         )
 
     try:
-        term = crypto_service.decrypt(record.encrypted_term)
+        term = crypto_for(user_id).decrypt(record.encrypted_term)
         masked = crypto_service.mask_term(term)
     except Exception:
         masked = "[PROTEGIDO]"
@@ -208,12 +250,12 @@ async def update_rule(
 
     term_to_mask = None
     if payload.term is not None:
-        record.encrypted_term = crypto_service.encrypt(payload.term)
-        record.term_blind_index = crypto_service.compute_blind_index(payload.term)
+        record.encrypted_term = crypto_for(user_id).encrypt(payload.term)
+        record.term_blind_index = crypto_for(user_id).compute_blind_index(payload.term)
         term_to_mask = payload.term
     else:
         try:
-            term_to_mask = crypto_service.decrypt(record.encrypted_term)
+            term_to_mask = crypto_for(user_id).decrypt(record.encrypted_term)
         except Exception:
             term_to_mask = "[PROTEGIDO]"
 

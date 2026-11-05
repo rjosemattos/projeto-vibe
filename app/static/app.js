@@ -1,418 +1,356 @@
-document.addEventListener("DOMContentLoaded", () => {
-    const promptInput = document.getElementById("prompt-input");
-    const charCount = document.getElementById("char-count");
-    const btnAnalyze = document.getElementById("btn-analyze");
-    const btnClear = document.getElementById("btn-clear");
-    const loadingSpinner = document.getElementById("loading-spinner");
-    const resultsCard = document.getElementById("results-card");
-    const statusIcon = document.getElementById("status-icon");
-    const statusTitle = document.getElementById("status-title");
-    const statusSubtitle = document.getElementById("status-subtitle");
-    const riskBadge = document.getElementById("risk-badge");
-    const riskReasonsList = document.getElementById("risk-reasons-list");
-    const detectionCount = document.getElementById("detection-count");
-    const detectionsGrid = document.getElementById("detections-grid");
-    const sanitizedOutput = document.getElementById("sanitized-output");
-    const btnCopy = document.getElementById("btn-copy");
-    const btnEditToggle = document.getElementById("btn-edit-toggle");
-    const copyFeedback = document.getElementById("copy-feedback");
+(function () {
+    "use strict";
 
-    // Elements for Confidential Rules CRUD
-    const btnToggleNewRule = document.getElementById("btn-toggle-new-rule");
-    const newRuleForm = document.getElementById("new-rule-form");
-    const btnCancelRule = document.getElementById("btn-cancel-rule");
-    const ruleTermInput = document.getElementById("rule-term");
-    const ruleTagInput = document.getElementById("rule-tag");
-    const ruleWholeWordInput = document.getElementById("rule-whole-word");
-    const ruleCaseSensitiveInput = document.getElementById("rule-case-sensitive");
-    const ruleFormFeedback = document.getElementById("rule-form-feedback");
-    const rulesEmptyState = document.getElementById("rules-empty-state");
-    const rulesTableWrapper = document.getElementById("rules-table-wrapper");
-    const rulesTableBody = document.getElementById("rules-table-body");
-
-    // Presets
-    const presets = {
-        "preset-custom": "Analise a proposta de desenvolvimento para o CESAR e verifique os dados do gestor Carlos, CPF 123.456.789-09 e email carlos@cesar.school.",
-        "preset-cpf-email": "Analise este cliente: João da Silva, CPF 123.456.789-09, email joao.silva@empresa.com.br, tel (11) 98765-4321, e me diga se ele pode contratar o serviço.",
-        "preset-secrets": 'Aqui está o script de conexão:\nimport os\nOPENAI_KEY = "sk-proj-a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6"\nDB_PASS = "SuperSecretPass123!"\nBearerToken = "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.dozGzT_WwtqP_ErQDhbP_Wtc8qEkWk7_8b5wB2uF01g"',
-        "preset-card": "Por favor processe o estorno do pagamento no cartão Visa 4532 1234 5678 9014 e CPF 123.456.789-09.",
-        "preset-clean": "Crie um algoritmo em Python para calcular o Fibonacci de um número N de forma recursiva e com memoização.",
+    const $ = (id) => document.getElementById(id);
+    const el = {
+        input: $("prompt-input"), count: $("char-count"), analyze: $("btn-analyze"), clear: $("btn-clear"),
+        preset: $("preset-select"), empty: $("result-empty"), loading: $("loading-spinner"), results: $("results-card"),
+        status: $("status-line"), risk: $("risk-badge"), reasons: $("risk-reasons-list"), reasonsBox: $("risk-breakdown"),
+        detCount: $("detection-count"), detList: $("detections-grid"), detBox: $("detections-section"),
+        output: $("sanitized-output"), copy: $("btn-copy"), edit: $("btn-edit-toggle"),
+        toggleRule: $("btn-toggle-new-rule"), ruleForm: $("new-rule-form"), cancelRule: $("btn-cancel-rule"),
+        term: $("rule-term"), tag: $("rule-tag"), whole: $("rule-whole-word"), cs: $("rule-case-sensitive"),
+        ruleErr: $("rule-form-feedback"), rulesEmpty: $("rules-empty-state"), rulesWrap: $("rules-table-wrapper"),
+        rulesBody: $("rules-table-body"), toast: $("toast"), theme: $("btn-theme"),
+        logout: $("btn-logout"), user: $("user-label"),
     };
 
-    // Update character count
-    const updateCharCount = () => {
-        const count = promptInput.value.length;
-        charCount.textContent = count.toLocaleString("pt-BR");
+    const PRESETS = {
+        custom: "Confirme os dados do gestor Carlos Menezes, CPF 123.456.789-09, e-mail carlos@cesar.school.",
+        "cpf-email": "Cliente: João da Silva, CPF 123.456.789-09, e-mail joao.silva@empresa.com.br, telefone (11) 98765-4321. Ele pode contratar o serviço?",
+        secrets: 'import os\nOPENAI_KEY = "sk-proj-a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6"\nDB_PASS = "SuperSecretPass123!"\nAuthorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.dozGzT_WwtqP_ErQDhbP_Wtc8qEkWk7_8b5wB2uF01g',
+        card: "Estorne o pagamento no cartão 4532 1234 5678 9014 do CPF 123.456.789-09.",
+        infra: "O banco em 10.20.30.40 recusa conexões. Chave usada:\n-----BEGIN OPENSSH PRIVATE KEY-----\nb3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQAAAAAAAAABAAAAMwAAAAtzc2gtZW\n-----END OPENSSH PRIVATE KEY-----",
+        clean: "Escreva uma função em Python que calcula Fibonacci com memoização.",
     };
 
-    promptInput.addEventListener("input", updateCharCount);
+    const RISK_LABEL = { LOW: "Baixo", MEDIUM: "Médio", HIGH: "Alto", CRITICAL: "Crítico" };
+    let csrfToken = "";
+    let authEnabled = false;
+    let supabaseClient = null;
+    let supabaseBearerToken = null;
 
-    // Ctrl/Cmd + Enter analyzes the prompt from the textarea
-    promptInput.addEventListener("keydown", (e) => {
-        if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
-            e.preventDefault();
-            btnAnalyze.click();
-        }
-    });
-
-    // Preset handlers
-    Object.keys(presets).forEach((presetId) => {
-        const btn = document.getElementById(presetId);
-        if (btn) {
-            btn.addEventListener("click", () => {
-                promptInput.value = presets[presetId];
-                updateCharCount();
-                resultsCard.classList.add("hidden");
-                promptInput.focus();
-            });
-        }
-    });
-
-    // Clear
-    btnClear.addEventListener("click", () => {
-        promptInput.value = "";
-        updateCharCount();
-        resultsCard.classList.add("hidden");
-        promptInput.focus();
-    });
-
-    // --- Confidential Rules Management Logic ---
-    async function fetchRules() {
-        try {
-            const res = await fetch("/api/v1/rules", {
-                headers: { "Accept": "application/json" }
-            });
-            if (!res.ok) return;
-            const rules = await res.json();
-            renderRules(rules);
-
-            // Auto-seed demo rule "CESAR" if empty
-            if (rules.length === 0) {
-                await seedDemoRule();
-            }
-        } catch (err) {
-            console.error("Erro ao carregar regras confidenciais:", err);
-        }
+    // ---------- helpers ----------
+    let toastTimer;
+    function notify(message, isError) {
+        el.toast.textContent = message;
+        el.toast.classList.toggle("error", !!isError);
+        el.toast.classList.remove("hidden");
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(() => el.toast.classList.add("hidden"), 3500);
     }
 
-    async function seedDemoRule() {
-        try {
-            await fetch("/api/v1/rules", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    term: "CESAR",
-                    replacement_tag: "[COMPANY_SENSITIVE]",
-                    case_sensitive: false,
-                    match_whole_word: true
-                })
-            });
-            const res = await fetch("/api/v1/rules");
-            if (res.ok) {
-                const rules = await res.json();
-                renderRules(rules);
-            }
-        } catch (e) {
-            // Ignore error if already seeded
+    async function api(path, options) {
+        const opts = Object.assign({ credentials: "same-origin" }, options);
+        opts.headers = Object.assign({ Accept: "application/json" }, opts.headers);
+        if (opts.body) opts.headers["Content-Type"] = "application/json";
+        if (supabaseBearerToken) {
+            opts.headers["Authorization"] = "Bearer " + supabaseBearerToken;
+        } else if (csrfToken) {
+            opts.headers["X-CSRF-Token"] = csrfToken;
         }
+        const res = await fetch(path, opts);
+        if (res.status === 401 && authEnabled) {
+            if (supabaseClient) await supabaseClient.auth.signOut();
+            window.location.href = "/login";
+            throw new Error("Sessão expirada.");
+        }
+        if (!res.ok) {
+            const data = await res.json().catch(() => ({}));
+            const detail = Array.isArray(data.detail) ? "Dados inválidos. Revise os campos." : data.detail;
+            throw new Error(detail || "Não foi possível concluir a operação.");
+        }
+        return res.status === 204 ? null : res.json();
     }
 
-    function renderRules(rules) {
-        rulesTableBody.innerHTML = "";
-        if (!rules || rules.length === 0) {
-            rulesEmptyState.classList.remove("hidden");
-            rulesTableWrapper.classList.add("hidden");
+    function icon(name) {
+        const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+        svg.setAttribute("class", "icon");
+        const use = document.createElementNS("http://www.w3.org/2000/svg", "use");
+        use.setAttribute("href", "#i-" + name);
+        svg.appendChild(use);
+        return svg;
+    }
+
+    // ---------- theme ----------
+    el.theme.addEventListener("click", () => {
+        const root = document.documentElement;
+        const current = root.getAttribute("data-theme") ||
+            (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+        const next = current === "dark" ? "light" : "dark";
+        root.setAttribute("data-theme", next);
+        try { localStorage.setItem("ps-theme", next); } catch (e) { /* ignore */ }
+    });
+
+    // ---------- input ----------
+    const updateCount = () => { el.count.textContent = el.input.value.length.toLocaleString("pt-BR"); };
+    el.input.addEventListener("input", updateCount);
+    el.input.addEventListener("keydown", (e) => {
+        if ((e.ctrlKey || e.metaKey) && e.key === "Enter") { e.preventDefault(); el.analyze.click(); }
+    });
+
+    function resetResults() {
+        el.results.classList.add("hidden");
+        el.risk.classList.add("hidden");
+        el.empty.classList.remove("hidden");
+    }
+
+    el.preset.addEventListener("change", () => {
+        if (PRESETS[el.preset.value]) {
+            el.input.value = PRESETS[el.preset.value];
+            updateCount();
+            resetResults();
+            el.input.focus();
+        }
+        el.preset.value = "";
+    });
+
+    el.clear.addEventListener("click", () => {
+        el.input.value = "";
+        updateCount();
+        resetResults();
+        el.input.focus();
+    });
+
+    // ---------- analyze ----------
+    el.analyze.addEventListener("click", async () => {
+        const prompt = el.input.value.trim();
+        if (!prompt) {
+            notify("Digite ou cole um texto para analisar.", true);
+            el.input.focus();
             return;
         }
+        el.analyze.disabled = true;
+        el.empty.classList.add("hidden");
+        el.results.classList.add("hidden");
+        el.loading.classList.remove("hidden");
+        try {
+            render(await api("/api/v1/analyze", { method: "POST", body: JSON.stringify({ prompt }) }));
+        } catch (err) {
+            el.empty.classList.remove("hidden");
+            notify(err.message, true);
+        } finally {
+            el.analyze.disabled = false;
+            el.loading.classList.add("hidden");
+        }
+    });
 
-        rulesEmptyState.classList.add("hidden");
-        rulesTableWrapper.classList.remove("hidden");
+    function render(data) {
+        el.results.classList.remove("hidden");
+        const level = data.risk_level;
+        el.risk.className = "risk risk-" + level.toLowerCase();
+        el.risk.textContent = "Risco " + (RISK_LABEL[level] || level).toLowerCase();
+
+        el.status.textContent = data.has_sensitive_data
+            ? data.total_detections + (data.total_detections === 1 ? " item sensível foi substituído." : " itens sensíveis foram substituídos.")
+            : "Nenhum dado sensível encontrado. O texto está igual ao original.";
+
+        el.reasons.replaceChildren();
+        (data.risk_report.reasons || []).forEach((r) => {
+            const li = document.createElement("li");
+            li.textContent = r;
+            el.reasons.appendChild(li);
+        });
+
+        el.detCount.textContent = data.total_detections;
+        el.detList.replaceChildren();
+        el.detBox.classList.toggle("hidden", data.detections.length === 0);
+        data.detections.forEach((d) => {
+            const li = document.createElement("li");
+            const type = document.createElement("span");
+            type.className = "detect-type";
+            type.textContent = d.type.replace(/_/g, " ").toLowerCase();
+            const masked = document.createElement("span");
+            masked.className = "detect-masked";
+            masked.textContent = d.masked_value;
+            const sev = document.createElement("span");
+            sev.className = "risk risk-" + d.severity.toLowerCase();
+            sev.textContent = RISK_LABEL[d.severity] || d.severity;
+            li.append(type, masked, sev);
+            el.detList.appendChild(li);
+        });
+
+        el.output.value = data.sanitized_prompt;
+        el.output.readOnly = true;
+        setEditLabel(false);
+        el.results.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }
+
+    function setEditLabel(editing) {
+        el.edit.replaceChildren(icon("edit"), document.createTextNode(editing ? " Concluir edição" : " Editar"));
+    }
+    el.edit.addEventListener("click", () => {
+        el.output.readOnly = !el.output.readOnly;
+        setEditLabel(!el.output.readOnly);
+        if (!el.output.readOnly) el.output.focus();
+    });
+
+    el.copy.addEventListener("click", async () => {
+        if (!el.output.value) return;
+        try {
+            await navigator.clipboard.writeText(el.output.value);
+        } catch (e) {
+            el.output.select();
+            document.execCommand("copy");
+        }
+        notify("Texto seguro copiado.");
+    });
+
+    // ---------- rules ----------
+    function renderRules(rules) {
+        el.rulesBody.replaceChildren();
+        const has = rules && rules.length > 0;
+        el.rulesEmpty.classList.toggle("hidden", has);
+        el.rulesWrap.classList.toggle("hidden", !has);
+        if (!has) return;
 
         rules.forEach((rule) => {
             const tr = document.createElement("tr");
-
-            // Term
             const tdTerm = document.createElement("td");
-            const termBadge = document.createElement("span");
-            termBadge.className = "term-badge-masked";
-            termBadge.textContent = rule.masked_term;
-            tdTerm.appendChild(termBadge);
-
-            // Tag
+            tdTerm.className = "mono";
+            tdTerm.textContent = rule.masked_term;
             const tdTag = document.createElement("td");
-            const tagBadge = document.createElement("span");
-            tagBadge.className = "tag-badge";
-            tagBadge.textContent = rule.replacement_tag;
-            tdTag.appendChild(tagBadge);
-
-            // Modes
+            tdTag.className = "mono";
+            tdTag.textContent = rule.replacement_tag;
             const tdMode = document.createElement("td");
-            const wholeSpan = document.createElement("span");
-            wholeSpan.className = "mode-badge";
-            wholeSpan.textContent = rule.match_whole_word ? "Palavra Completa" : "Parcial";
-
-            const caseSpan = document.createElement("span");
-            caseSpan.className = "mode-badge";
-            caseSpan.textContent = rule.case_sensitive ? "Case-Sensitive" : "Case-Insensitive";
-
-            tdMode.appendChild(wholeSpan);
-            tdMode.appendChild(caseSpan);
-
-            // Actions
-            const tdActions = document.createElement("td");
-            const btnDelete = document.createElement("button");
-            btnDelete.type = "button";
-            btnDelete.className = "btn-danger-sm";
-            btnDelete.textContent = "🗑️ Excluir";
-            btnDelete.addEventListener("click", () => deleteRule(rule.id));
-            tdActions.appendChild(btnDelete);
-
-            tr.appendChild(tdTerm);
-            tr.appendChild(tdTag);
-            tr.appendChild(tdMode);
-            tr.appendChild(tdActions);
-
-            rulesTableBody.appendChild(tr);
-        });
-    }
-
-    async function deleteRule(ruleId) {
-        if (!confirm("Deseja realmente remover esta regra de ofuscação?")) return;
-        try {
-            const res = await fetch(`/api/v1/rules/${ruleId}`, {
-                method: "DELETE"
+            [rule.match_whole_word ? "Palavra inteira" : "Parcial",
+             rule.case_sensitive ? "Diferencia maiúsculas" : "Ignora maiúsculas"].forEach((t) => {
+                const s = document.createElement("span");
+                s.className = "tag";
+                s.textContent = t;
+                tdMode.appendChild(s);
             });
-            if (res.ok) {
-                fetchRules();
-            } else {
-                alert("Falha ao excluir regra.");
-            }
-        } catch (err) {
-            alert(`Erro ao excluir regra: ${err.message}`);
-        }
-    }
-
-    if (btnToggleNewRule) {
-        btnToggleNewRule.addEventListener("click", () => {
-            newRuleForm.classList.toggle("hidden");
-            if (!newRuleForm.classList.contains("hidden")) {
-                ruleTermInput.focus();
-            }
+            const tdAct = document.createElement("td");
+            tdAct.appendChild(deleteButton(rule.id));
+            tr.append(tdTerm, tdTag, tdMode, tdAct);
+            el.rulesBody.appendChild(tr);
         });
     }
 
-    if (btnCancelRule) {
-        btnCancelRule.addEventListener("click", () => {
-            newRuleForm.classList.add("hidden");
-            newRuleForm.reset();
-            ruleFormFeedback.classList.add("hidden");
-        });
-    }
-
-    if (newRuleForm) {
-        newRuleForm.addEventListener("submit", async (e) => {
-            e.preventDefault();
-            const term = ruleTermInput.value.trim();
-            let tag = ruleTagInput.value.trim();
-            const match_whole_word = ruleWholeWordInput.checked;
-            const case_sensitive = ruleCaseSensitiveInput.checked;
-
-            if (!term || !tag) return;
-
-            ruleFormFeedback.classList.add("hidden");
-
+    // Two-step inline confirmation instead of a blocking confirm() dialog
+    function deleteButton(ruleId) {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "btn btn-sm btn-danger";
+        const reset = () => {
+            btn.classList.remove("confirming");
+            btn.replaceChildren(icon("trash"), document.createTextNode(" Excluir"));
+        };
+        reset();
+        let timer;
+        btn.addEventListener("click", async () => {
+            if (!btn.classList.contains("confirming")) {
+                btn.classList.add("confirming");
+                btn.textContent = "Confirmar exclusão";
+                timer = setTimeout(reset, 3500);
+                return;
+            }
+            clearTimeout(timer);
             try {
-                const res = await fetch("/api/v1/rules", {
-                    method: "POST",
-                    headers: {
-                        "Content-Type": "application/json",
-                        "Accept": "application/json"
-                    },
-                    body: JSON.stringify({
-                        term,
-                        replacement_tag: tag,
-                        match_whole_word,
-                        case_sensitive
-                    })
-                });
-
-                if (!res.ok) {
-                    const errData = await res.json().catch(() => ({}));
-                    throw new Error(errData.detail || "Falha ao registrar regra.");
-                }
-
-                newRuleForm.reset();
-                newRuleForm.classList.add("hidden");
-                fetchRules();
+                await api("/api/v1/rules/" + encodeURIComponent(ruleId), { method: "DELETE" });
+                notify("Termo removido.");
+                loadRules();
             } catch (err) {
-                ruleFormFeedback.textContent = `Erro: ${err.message}`;
-                ruleFormFeedback.classList.remove("hidden");
+                notify(err.message, true);
+                reset();
             }
         });
+        return btn;
     }
 
-    // Load active rules on page load
-    fetchRules();
+    async function loadRules() {
+        try { renderRules(await api("/api/v1/rules")); }
+        catch (err) { if (!/Sessão/.test(err.message)) notify(err.message, true); }
+    }
 
-    // Analyze action
-    btnAnalyze.addEventListener("click", async () => {
-        const prompt = promptInput.value.trim();
-        if (!prompt) {
-            alert("Por favor, digite ou cole um prompt antes de analisar.");
-            promptInput.focus();
+    el.toggleRule.addEventListener("click", () => {
+        el.ruleForm.classList.toggle("hidden");
+        if (!el.ruleForm.classList.contains("hidden")) el.term.focus();
+    });
+    el.cancelRule.addEventListener("click", () => {
+        el.ruleForm.classList.add("hidden");
+        el.ruleForm.reset();
+        el.ruleErr.classList.add("hidden");
+    });
+    el.ruleForm.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        el.ruleErr.classList.add("hidden");
+        const term = el.term.value.trim();
+        const tag = el.tag.value.trim();
+        if (term.length < 2 || !tag) {
+            el.ruleErr.textContent = "Informe o termo (mínimo 2 caracteres) e o marcador.";
+            el.ruleErr.classList.remove("hidden");
             return;
         }
-
-        // UI state
-        btnAnalyze.disabled = true;
-        loadingSpinner.classList.remove("hidden");
-        resultsCard.classList.add("hidden");
-        copyFeedback.classList.add("hidden");
-
         try {
-            const response = await fetch("/api/v1/analyze", {
+            await api("/api/v1/rules", {
                 method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    "Accept": "application/json",
-                },
-                body: JSON.stringify({ prompt }),
+                body: JSON.stringify({
+                    term, replacement_tag: tag,
+                    match_whole_word: el.whole.checked, case_sensitive: el.cs.checked,
+                }),
             });
+            el.ruleForm.reset();
+            el.whole.checked = true;
+            el.ruleForm.classList.add("hidden");
+            notify("Termo salvo.");
+            loadRules();
+        } catch (err) {
+            el.ruleErr.textContent = err.message;
+            el.ruleErr.classList.remove("hidden");
+        }
+    });
 
-            if (!response.ok) {
-                const errData = await response.json().catch(() => ({}));
-                throw new Error(errData.detail || "Falha ao processar análise do prompt.");
+    // ---------- session ----------
+    el.logout.addEventListener("click", async () => {
+        if (supabaseClient) {
+            try { await supabaseClient.auth.signOut(); } catch (e) { /* ignore */ }
+        }
+        try { await api("/api/v1/auth/logout", { method: "POST" }); } catch (e) { /* ignore */ }
+        window.location.href = "/login";
+    });
+
+    async function init() {
+        try {
+            const cfg = await fetch("/api/v1/auth/config").then((r) => r.json()).catch(() => ({}));
+            authEnabled = !!cfg.auth_enabled;
+
+            // 1. Check Supabase (Google OAuth) Session
+            if (cfg.supabase_enabled && window.supabase) {
+                supabaseClient = window.supabase.createClient(cfg.supabase_url, cfg.supabase_anon_key);
+                const { data: { session } } = await supabaseClient.auth.getSession();
+                if (session) {
+                    supabaseBearerToken = session.access_token;
+                    const email = session.user?.email || "Google User";
+                    el.user.textContent = email;
+                    el.user.classList.remove("hidden");
+                    el.logout.classList.remove("hidden");
+
+                    supabaseClient.auth.onAuthStateChange((_event, newSession) => {
+                        if (newSession) {
+                            supabaseBearerToken = newSession.access_token;
+                        } else {
+                            window.location.href = "/login";
+                        }
+                    });
+                    loadRules();
+                    return;
+                }
             }
 
-            const data = await response.json();
-            renderResults(data);
-        } catch (err) {
-            alert(`Erro: ${err.message}`);
-        } finally {
-            btnAnalyze.disabled = false;
-            loadingSpinner.classList.add("hidden");
+            // 2. Fallback to standard cookie session
+            const me = await fetch("/api/v1/auth/me", { credentials: "same-origin" }).then((r) => r.json());
+            if (authEnabled) {
+                if (!me.authenticated) { window.location.href = "/login"; return; }
+                csrfToken = me.csrf_token;
+                el.user.textContent = me.username;
+                el.user.classList.remove("hidden");
+                el.logout.classList.remove("hidden");
+            }
+        } catch (e) {
+            notify("Não foi possível verificar a sessão.", true);
         }
-    });
-
-    // Render results
-    function renderResults(data) {
-        resultsCard.classList.remove("hidden");
-
-        // Risk Level Badge styling
-        const level = data.risk_level.toLowerCase();
-        riskBadge.className = `risk-badge risk-${level}`;
-        riskBadge.textContent = data.risk_level;
-
-        // Status Header
-        if (data.has_sensitive_data) {
-            statusIcon.textContent = "⚠️";
-            statusTitle.textContent = "Informações sensíveis detectadas no prompt";
-            statusSubtitle.textContent = "Revise a sanitização antes de enviar este conteúdo para qualquer ferramenta de IA.";
-        } else {
-            statusIcon.textContent = "✓";
-            statusTitle.textContent = "Nenhuma informação sensível identificada";
-            statusSubtitle.textContent = "O prompt não apresentou padrões conhecidos de identificadores formais ou credenciais.";
-        }
-
-        // Reasons
-        riskReasonsList.innerHTML = "";
-        const reasons = data.risk_report?.reasons || [];
-        if (reasons.length === 0) {
-            const li = document.createElement("li");
-            li.textContent = "Nenhum fator de risco identificado.";
-            riskReasonsList.appendChild(li);
-        } else {
-            reasons.forEach((r) => {
-                const li = document.createElement("li");
-                li.textContent = r;
-                riskReasonsList.appendChild(li);
-            });
-        }
-
-        // Detections Grid
-        detectionCount.textContent = data.total_detections;
-        detectionsGrid.innerHTML = "";
-
-        if (data.detections.length === 0) {
-            const emptyMsg = document.createElement("p");
-            emptyMsg.className = "text-muted";
-            emptyMsg.textContent = "Nenhuma entidade individual sinalizada.";
-            detectionsGrid.appendChild(emptyMsg);
-        } else {
-            data.detections.forEach((item) => {
-                const card = document.createElement("div");
-                card.className = "detection-card";
-
-                const header = document.createElement("div");
-                header.className = "detection-card-header";
-
-                const typeSpan = document.createElement("span");
-                typeSpan.className = "detection-type";
-                typeSpan.textContent = item.type;
-
-                const sevSpan = document.createElement("span");
-                sevSpan.className = `detection-severity risk-${item.severity.toLowerCase()}`;
-                sevSpan.textContent = item.severity;
-
-                header.appendChild(typeSpan);
-                header.appendChild(sevSpan);
-
-                const maskedSpan = document.createElement("span");
-                maskedSpan.className = "detection-masked";
-                maskedSpan.textContent = item.masked_value;
-
-                const stratSpan = document.createElement("span");
-                stratSpan.className = "detection-strategy";
-                stratSpan.textContent = `Estratégia: ${item.strategy} (${Math.round(item.confidence * 100)}% conf.)`;
-
-                card.appendChild(header);
-                card.appendChild(maskedSpan);
-                card.appendChild(stratSpan);
-                detectionsGrid.appendChild(card);
-            });
-        }
-
-        // Sanitized prompt
-        sanitizedOutput.value = data.sanitized_prompt;
-        sanitizedOutput.readOnly = true;
-        btnEditToggle.textContent = "✏️ Editar Sanitização";
-
-        // Smooth scroll to results
-        resultsCard.scrollIntoView({ behavior: "smooth", block: "nearest" });
+        loadRules();
     }
-
-    // Toggle edit mode
-    btnEditToggle.addEventListener("click", () => {
-        if (sanitizedOutput.readOnly) {
-            sanitizedOutput.readOnly = false;
-            sanitizedOutput.focus();
-            btnEditToggle.textContent = "🔒 Concluir Edição";
-        } else {
-            sanitizedOutput.readOnly = true;
-            btnEditToggle.textContent = "✏️ Editar Sanitização";
-        }
-    });
-
-    // Copy to clipboard
-    btnCopy.addEventListener("click", async () => {
-        const text = sanitizedOutput.value;
-        if (!text) return;
-
-        try {
-            await navigator.clipboard.writeText(text);
-            copyFeedback.classList.remove("hidden");
-            setTimeout(() => {
-                copyFeedback.classList.add("hidden");
-            }, 3000);
-        } catch (err) {
-            // Fallback
-            sanitizedOutput.select();
-            document.execCommand("copy");
-            copyFeedback.classList.remove("hidden");
-            setTimeout(() => {
-                copyFeedback.classList.add("hidden");
-            }, 3000);
-        }
-    });
-});
-
+    init();
+})();
