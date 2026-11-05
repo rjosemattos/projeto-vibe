@@ -51,8 +51,10 @@
         }
         const res = await fetch(path, opts);
         if (res.status === 401 && authEnabled) {
-            if (supabaseClient) await supabaseClient.auth.signOut();
-            window.location.href = "/login";
+            if (supabaseClient) {
+                try { await supabaseClient.auth.signOut({ scope: "local" }); } catch (e) { /* ignore */ }
+            }
+            window.location.replace("/login");
             throw new Error("Sessão expirada.");
         }
         if (!res.ok) {
@@ -315,26 +317,35 @@
             const cfg = await fetch("/api/v1/auth/config").then((r) => r.json()).catch(() => ({}));
             authEnabled = !!cfg.auth_enabled;
 
-            // 1. Check Supabase (Google OAuth) Session
+            // 1. Check Supabase Session
             if (cfg.supabase_enabled && window.supabase) {
                 supabaseClient = window.supabase.createClient(cfg.supabase_url, cfg.supabase_anon_key);
                 const { data: { session } } = await supabaseClient.auth.getSession();
-                if (session) {
+                if (session && session.access_token) {
                     supabaseBearerToken = session.access_token;
-                    const email = session.user?.email || "Google User";
-                    el.user.textContent = email;
-                    el.user.classList.remove("hidden");
-                    el.logout.classList.remove("hidden");
+                    const meSb = await fetch("/api/v1/auth/me", {
+                        credentials: "same-origin",
+                        headers: { Accept: "application/json", Authorization: "Bearer " + supabaseBearerToken },
+                    }).then((r) => r.json()).catch(() => ({ authenticated: false }));
 
-                    supabaseClient.auth.onAuthStateChange((_event, newSession) => {
-                        if (newSession) {
-                            supabaseBearerToken = newSession.access_token;
-                        } else {
-                            window.location.href = "/login";
-                        }
-                    });
-                    loadRules();
-                    return;
+                    if (meSb && meSb.authenticated) {
+                        const email = session.user?.email || meSb.username || "Usuário";
+                        el.user.textContent = email;
+                        el.user.classList.remove("hidden");
+                        el.logout.classList.remove("hidden");
+
+                        supabaseClient.auth.onAuthStateChange((event, newSession) => {
+                            if (newSession && newSession.access_token) {
+                                supabaseBearerToken = newSession.access_token;
+                            } else if (event === "SIGNED_OUT") {
+                                window.location.replace("/login");
+                            }
+                        });
+                        loadRules();
+                        return;
+                    }
+                    try { await supabaseClient.auth.signOut({ scope: "local" }); } catch (e) { /* ignore */ }
+                    supabaseBearerToken = null;
                 }
             }
 

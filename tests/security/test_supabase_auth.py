@@ -115,3 +115,47 @@ async def test_expired_or_invalid_jwt_rejected(supabase_env):
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
         assert (await c.get("/api/v1/rules", headers={"Authorization": f"Bearer {expired_token}"})).status_code == 401
         assert (await c.get("/api/v1/rules", headers={"Authorization": f"Bearer {bad_signature_token}"})).status_code == 401
+
+
+@pytest.mark.anyio
+async def test_supabase_es256_jwks_jwt_verified_even_with_hmac_secret(supabase_env, monkeypatch):
+    """Supabase projects using asymmetric ES256 keys must work even if SUPABASE_JWT_SECRET is an HMAC string."""
+    import json
+    from cryptography.hazmat.primitives.asymmetric import ec
+    from jwt import PyJWKSet
+    from jwt.algorithms import ECAlgorithm
+    import app.auth.supabase_jwt as sb_jwt
+
+    private_key = ec.generate_private_key(ec.SECP256R1())
+    public_jwk = json.loads(ECAlgorithm.to_jwk(private_key.public_key()))
+    public_jwk["kid"] = "supabase-es256-kid-1"
+    public_jwk["alg"] = "ES256"
+    public_jwk["use"] = "sig"
+    jwk_set = PyJWKSet.from_dict({"keys": [public_jwk]})
+
+    monkeypatch.setattr(sb_jwt, "_fetch_jwks", lambda _url: jwk_set)
+
+    now = int(time.time())
+    es256_token = jwt.encode(
+        {
+            "sub": "es256-user-999",
+            "email": "estudante@cesar.school",
+            "aud": "authenticated",
+            "role": "authenticated",
+            "iat": now,
+            "exp": now + 3600,
+        },
+        private_key,
+        algorithm="ES256",
+        headers={"kid": "supabase-es256-kid-1"},
+    )
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
+        res_me = await c.get("/api/v1/auth/me", headers={"Authorization": f"Bearer {es256_token}"})
+        assert res_me.status_code == 200
+        assert res_me.json()["authenticated"] is True
+        assert res_me.json()["username"] == "estudante@cesar.school"
+
+        res_rules = await c.get("/api/v1/rules", headers={"Authorization": f"Bearer {es256_token}"})
+        assert res_rules.status_code == 200
+
