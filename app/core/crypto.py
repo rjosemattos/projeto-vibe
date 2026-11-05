@@ -110,6 +110,22 @@ class RuleCryptoService:
             logger.error("Could not persist local key (%s); using legacy dev key.", type(exc).__name__)
             return hashlib.sha256(legacy).digest()
 
+    def for_user(self, user_id: str) -> "RuleCryptoService":
+        """Derives independent AES and blind-index keys for one user (HKDF-SHA256)."""
+        from cryptography.hazmat.primitives import hashes
+        from cryptography.hazmat.primitives.kdf.hkdf import HKDF
+
+        def derive(master: bytes, purpose: bytes) -> bytes:
+            return HKDF(
+                algorithm=hashes.SHA256(), length=32, salt=None,
+                info=purpose + b":" + user_id.encode("utf-8"),
+            ).derive(master)
+
+        return RuleCryptoService(
+            master_key=derive(self._aes_key, b"ps-aes"),
+            hmac_key=derive(self._hmac_key, b"ps-blind"),
+        )
+
     def encrypt(self, plain_text: str) -> str:
         """Encrypts a plain text term using AES-256-GCM with a unique 12-byte random nonce.
 

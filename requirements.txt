@@ -3,6 +3,9 @@ uvicorn[standard]>=0.30.0
 pydantic>=2.8.0
 pydantic-settings>=2.4.0
 cryptography>=42.0.0
+argon2-cffi>=23.1.0
 # Desktop agent (system tray icon); optional on servers but harmless
 Pillow>=10.0.0
 pystray>=0.19.5
+pyjwt>=2.8.0
+psycopg[binary]>=3.1.0

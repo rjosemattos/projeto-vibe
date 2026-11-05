@@ -24,16 +24,36 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
             response.headers["Pragma"] = "no-cache"
 
         # Content Security Policy for UI and API
+        sb_host = ""
+        if settings.SUPABASE_URL:
+            # Extract domain for strict connect-src
+            try:
+                from urllib.parse import urlparse
+                parsed = urlparse(settings.SUPABASE_URL)
+                if parsed.netloc:
+                    sb_host = f"https://{parsed.netloc} wss://{parsed.netloc} "
+            except Exception:
+                pass
+
+        connect_src = f"'self' {sb_host}https://*.supabase.co wss://*.supabase.co".strip()
+
         response.headers["Content-Security-Policy"] = (
             "default-src 'self'; "
-            "script-src 'self'; "
-            "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
-            "font-src 'self' https://fonts.gstatic.com; "
-            "img-src 'self' data:; "
-            "connect-src 'self'; "
+            "script-src 'self' https://cdn.jsdelivr.net; "
+            "style-src 'self'; "
+            "font-src 'self'; "
+            "img-src 'self' data: https://*.googleusercontent.com https://lh3.googleusercontent.com; "
+            f"connect-src {connect_src}; "
+            "base-uri 'none'; "
+            "form-action 'self'; "
             "frame-ancestors 'none'; "
             "object-src 'none';"
         )
+        response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=(), payment=()"
+        response.headers["Cross-Origin-Opener-Policy"] = "same-origin"
+        response.headers["Cross-Origin-Resource-Policy"] = "same-origin"
+        if settings.AUTH_ENABLED and settings.COOKIE_SECURE:
+            response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
         return response
 
 
@@ -62,3 +82,19 @@ class PayloadLimitMiddleware(BaseHTTPMiddleware):
                     )
         return await call_next(request)
 
+
+
+class RateLimitMiddleware(BaseHTTPMiddleware):
+    """Per-IP request throttling for the API (login has its own, stricter limit)."""
+
+    async def dispatch(self, request: Request, call_next) -> Response:
+        if request.url.path.startswith("/api/"):
+            from app.auth.routes import client_ip, rate_limiter
+
+            if not rate_limiter.allow(f"api:{client_ip(request)}", settings.RATE_LIMIT_API_PER_MIN):
+                return JSONResponse(
+                    status_code=429,
+                    content={"detail": "Muitas requisições. Tente novamente em instantes."},
+                    headers={"Retry-After": "60"},
+                )
+        return await call_next(request)

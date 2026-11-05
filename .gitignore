@@ -73,3 +73,6 @@ Thumbs.db
 
 # Local data (keys, encrypted rules)
 .data/
+.data/
+*.db
+*.db-*

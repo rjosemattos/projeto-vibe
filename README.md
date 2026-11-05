@@ -192,7 +192,7 @@ Ou manualmente: `uvicorn app.main:app --reload --host 127.0.0.1 --port 8000`.
 
 ## 🧪 5. Execução dos Testes Automatizados
 
-O projeto conta com **84 testes automatizados** cobrindo validadores matemáticos (CPF, CNPJ, Luhn), criptografia AES-256-GCM, blind indexing HMAC-SHA256, motor regex de passe único, API CRUD, proteção anti-ReDoS e o Agente Desktop Global:
+O projeto conta com **105 testes automatizados** cobrindo validadores matemáticos (CPF, CNPJ, Luhn), criptografia AES-256-GCM, blind indexing HMAC-SHA256, motor regex de passe único, API CRUD, proteção anti-ReDoS, autenticação segura (Argon2id + CSRF) e integração Supabase / Google OAuth JWT:
 
 ```bash
 # Instalar dependências de desenvolvimento
@@ -232,7 +232,52 @@ O código de saída é `10` quando dados sensíveis foram encontrados e `0` quan
 
 ---
 
-## 🔑 7. Chaves de Criptografia
+## ☁️ 7. Hospedagem Gratuita na Vercel + Supabase (E-mail e Senha)
+
+O projeto está configurado para rodar de forma serverless na **Vercel** com banco PostgreSQL e autenticação segura no **Supabase**:
+
+### Passo a Passo:
+
+1. **Configurar o Supabase (Gratuito):**
+   - Crie uma conta em [supabase.com](https://supabase.com) e crie um novo projeto.
+   - No menu lateral **SQL Editor**, cole e execute o script [`supabase_schema.sql`](file:///home/rodrigo/Documentos/repos/projeto-vibe/supabase_schema.sql).
+   - No topo do painel, clique no botão **Connect** e copie a **URI** (modo Transaction Pooler na porta 6543 ou conexão direta).
+   - Em **Authentication > Users**, clique em **Add user > Create user** para cadastrar os e-mails autorizados (ex: `aluno@cesar.school`) e suas senhas iniciais.
+   - *(Opcional)* Em **Authentication > Providers > Email**, você pode desmarcar *Enable Signup* para garantir que apenas usuários criados por você consigam entrar.
+
+2. **Deploy na Vercel (Gratuito):**
+   - Conecte o repositório na [vercel.com](https://vercel.com).
+   - Em **Settings > Environment Variables**, adicione:
+     * `DATABASE_URL`: URI do banco copiada do Supabase.
+     * `SUPABASE_URL`: URL do projeto no Supabase (ex: `https://[REF].supabase.co`).
+     * `SUPABASE_ANON_KEY`: Chave anônima pública do Supabase (`anon` `public`).
+     * `SUPABASE_JWT_SECRET`: Segredo JWT do Supabase (em *Project Settings > API > JWT Secret*).
+     * `ALLOWED_EMAIL_DOMAINS`: `cesar.school`
+     * `PROMPT_SANITIZER_ENCRYPTION_KEY`: Chave aleatória Base64 de 32 bytes para cifrar os termos com AES-256-GCM.
+     * `PROMPT_SANITIZER_BLIND_INDEX_KEY`: Chave aleatória Base64 de 32 bytes para o índice cego HMAC.
+   - Clique em **Deploy**. A Vercel fornecerá seu link público seguro HTTPS (ex: `https://seu-projeto.vercel.app`).
+
+3. **Como funciona o Login:**
+   - Na tela de login, o usuário digita seu e-mail institucional `@cesar.school` e senha.
+   - A autenticação valida a identidade e a restrição de domínio tanto no cliente quanto no servidor.
+   - Cada usuário tem seu cofre de termos isolado no PostgreSQL, e os prompts analisados não são armazenados.
+
+---
+
+### Opção B: Hospedagem com Docker e Caddy (VM Própria / VPS)
+
+Com `PROMPT_SANITIZER_AUTH_ENABLED=true` o servidor exige login com sessões seguras em cookies, senhas Argon2id e regras locais persistidas em SQLite:
+
+```bash
+cp .env.example .env     # preencha DOMAIN e as duas chaves
+docker compose up -d     # app + Caddy com HTTPS automático
+docker compose exec app python manage_users.py create admin --admin
+```
+Outros comandos: `manage_users.py passwd|disable|enable|list`.
+
+---
+
+## 🔑 8. Chaves de Criptografia
 
 Sem configuração, cada instalação gera chaves **aleatórias** (`.aes.key` e `.blind.key`, permissão `0600`) em `%APPDATA%\PromptSanitizer` (Windows) ou `~/.config/prompt-sanitizer` (Linux/macOS). Antes, uma chave fixa e pública era usada por padrão; cofres já existentes continuam legíveis com a chave legada até serem recriados. Para usar chaves próprias, defina `PROMPT_SANITIZER_ENCRYPTION_KEY` / `PROMPT_SANITIZER_BLIND_INDEX_KEY` (Base64 de 32 bytes). Use `PROMPT_SANITIZER_DATA_DIR` para mudar a pasta de dados. **Faça backup da pasta**: sem as chaves, as regras não podem ser decifradas. Um `rules.enc.json` ilegível é preservado como `rules.enc.corrupt`.
 
