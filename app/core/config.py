@@ -1,7 +1,30 @@
 """Configuration settings for Prompt Sanitizer."""
 
-from typing import List
+import base64
+import hashlib
+import json
+import os
+from typing import List, Union
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+def _parse_str_list(v: Union[List[str], str]) -> List[str]:
+    if isinstance(v, list):
+        return v
+    if isinstance(v, str):
+        s = v.strip()
+        if not s:
+            return []
+        if s.startswith("["):
+            try:
+                parsed = json.loads(s)
+                if isinstance(parsed, list):
+                    return [str(x).strip() for x in parsed if str(x).strip()]
+            except Exception:
+                pass
+        return [item.strip() for item in s.split(",") if item.strip()]
+    return []
 
 
 class Settings(BaseSettings):
@@ -12,6 +35,7 @@ class Settings(BaseSettings):
         env_file=".env",
         env_file_encoding="utf-8",
         extra="ignore",
+        enable_decoding=False,
     )
 
     APP_NAME: str = "Prompt Sanitizer"
@@ -60,10 +84,14 @@ class Settings(BaseSettings):
     SUPABASE_JWT_SECRET: str = ""
     ALLOWED_EMAIL_DOMAINS: List[str] = ["cesar.school"]
 
+    @field_validator("ALLOWED_ORIGINS", "ALLOWED_HOSTS", "ALLOWED_EMAIL_DOMAINS", mode="before")
+    @classmethod
+    def _validate_list_fields(cls, v: Union[List[str], str]) -> List[str]:
+        return _parse_str_list(v)
+
 
 settings = Settings()
 
-import os
 # Allow standard un-prefixed cloud env vars (e.g. Supabase and Vercel defaults)
 if not settings.DATABASE_URL:
     settings.DATABASE_URL = os.getenv("DATABASE_URL", "")
@@ -73,11 +101,28 @@ if not settings.SUPABASE_ANON_KEY:
     settings.SUPABASE_ANON_KEY = os.getenv("SUPABASE_ANON_KEY", os.getenv("NEXT_PUBLIC_SUPABASE_ANON_KEY", ""))
 if not settings.SUPABASE_JWT_SECRET:
     settings.SUPABASE_JWT_SECRET = os.getenv("SUPABASE_JWT_SECRET", "")
+if not settings.ENCRYPTION_KEY:
+    settings.ENCRYPTION_KEY = os.getenv("ENCRYPTION_KEY", "")
+if not settings.BLIND_INDEX_KEY:
+    settings.BLIND_INDEX_KEY = os.getenv("BLIND_INDEX_KEY", "")
 if os.getenv("ALLOWED_EMAIL_DOMAINS"):
-    settings.ALLOWED_EMAIL_DOMAINS = [d.strip().lower() for d in os.getenv("ALLOWED_EMAIL_DOMAINS", "").split(",") if d.strip()]
+    settings.ALLOWED_EMAIL_DOMAINS = [
+        d.strip().lower() for d in _parse_str_list(os.getenv("ALLOWED_EMAIL_DOMAINS", ""))
+    ]
+
+# On stateless serverless (Vercel/Supabase), derive stable keys if explicit keys were omitted
+_seed_secret = settings.SUPABASE_JWT_SECRET or settings.DATABASE_URL
+if _seed_secret:
+    if not settings.ENCRYPTION_KEY:
+        settings.ENCRYPTION_KEY = base64.b64encode(
+            hashlib.sha256(f"ps-aes:{_seed_secret}".encode("utf-8")).digest()
+        ).decode("ascii")
+    if not settings.BLIND_INDEX_KEY:
+        settings.BLIND_INDEX_KEY = base64.b64encode(
+            hashlib.sha256(f"ps-blind:{_seed_secret}".encode("utf-8")).digest()
+        ).decode("ascii")
 
 # Keep CORS aligned with a custom PORT (the web UI is same-origin, but this avoids surprises)
 for _origin in (f"http://localhost:{settings.PORT}", f"http://127.0.0.1:{settings.PORT}"):
     if _origin not in settings.ALLOWED_ORIGINS:
         settings.ALLOWED_ORIGINS.append(_origin)
-

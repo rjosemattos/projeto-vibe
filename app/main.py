@@ -44,6 +44,32 @@ app = FastAPI(
 )
 
 # Attach security & privacy middlewares
+class ServerlessPathNormalizerMiddleware:
+    """Normalizes Vercel serverless entrypoint path prefixes so FastAPI routes always match."""
+
+    ENTRYPOINT_PREFIXES = ("/app/main.py", "/api/index.py", "/api/index", "/main.py")
+
+    def __init__(self, app):
+        self.app = app
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] == "http":
+            path = scope.get("path", "")
+            for prefix in self.ENTRYPOINT_PREFIXES:
+                if path == prefix:
+                    scope = dict(scope)
+                    scope["path"] = "/"
+                    scope["raw_path"] = b"/"
+                    break
+                if path.startswith(prefix + "/"):
+                    new_path = path[len(prefix):]
+                    scope = dict(scope)
+                    scope["path"] = new_path
+                    scope["raw_path"] = new_path.encode("utf-8")
+                    break
+        await self.app(scope, receive, send)
+
+
 app.add_middleware(SecurityHeadersMiddleware)
 app.add_middleware(RateLimitMiddleware)
 if settings.ALLOWED_HOSTS != ["*"]:
@@ -54,8 +80,9 @@ app.add_middleware(
     allow_origins=settings.ALLOWED_ORIGINS,
     allow_credentials=False,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allow_headers=["Content-Type", "Accept", "X-User-Id", "X-CSRF-Token"],
+    allow_headers=["Content-Type", "Accept", "X-User-Id", "X-CSRF-Token", "Authorization"],
 )
+app.add_middleware(ServerlessPathNormalizerMiddleware)
 
 # Custom global exception handler: prevents internal tracebacks leaking in responses
 @app.exception_handler(Exception)

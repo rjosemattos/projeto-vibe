@@ -34,3 +34,13 @@ async def test_login_page_and_csp_header():
         assert "unsafe-inline" not in csp and "googleapis" not in csp
         me = await c.get("/api/v1/auth/me")
         assert me.json()["auth_enabled"] is False
+
+
+@pytest.mark.anyio
+async def test_vercel_serverless_entrypoint_normalization():
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
+        for path in ("/", "/app/main.py", "/api/index.py"):
+            res = await c.get(path)
+            assert res.status_code == 200 and "Prompt Sanitizer" in res.text
+        res_login = await c.get("/app/main.py/login")
+        assert res_login.status_code == 200 and "Entrar" in res_login.text
