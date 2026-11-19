@@ -50,6 +50,18 @@ if "%NEEDS_INSTALL%"=="1" (
 )
 
 rem --- 4. Iniciar o agente ---
+if /i "%~1"=="--install" (
+    ".venv\Scripts\python.exe" run_desktop_agent.py --enable-autostart
+    if errorlevel 1 (
+        pause
+        exit /b 1
+    )
+)
+if /i "%~1"=="--uninstall" (
+    ".venv\Scripts\python.exe" run_desktop_agent.py --disable-autostart
+    pause
+    exit /b %errorlevel%
+)
 if "%~1"=="--console" (
     echo [+] Iniciando em modo console ^(logs visiveis^) ...
     ".venv\Scripts\python.exe" run_desktop_agent.py
@@ -59,7 +71,7 @@ if "%~1"=="--console" (
 
 if exist ".venv\Scripts\pythonw.exe" (
     echo [+] Iniciando Agente em segundo plano ^(icone na bandeja perto do relogio^) ...
-    start "" ".venv\Scripts\pythonw.exe" run_desktop_agent.py
+    start "" ".venv\Scripts\pythonw.exe" run_desktop_agent.py --background
 ) else (
     ".venv\Scripts\python.exe" run_desktop_agent.py
 )

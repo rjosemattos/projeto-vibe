@@ -3,7 +3,7 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import List
-from app.models.response import DetectionItem, SeverityLevel
+from app.models.response import SeverityLevel
 
 
 @dataclass
@@ -19,16 +19,6 @@ class Detection:
     raw_value: str
     normalized_key: str
     masked_value: str
-
-    def to_api_item(self) -> DetectionItem:
-        """Convert to external API model, strictly omitting raw_value and normalized_key."""
-        return DetectionItem(
-            type=self.type,
-            severity=self.severity,
-            confidence=self.confidence,
-            strategy=self.strategy,
-            masked_value=self.masked_value,
-        )
 
 
 class BaseDetector(ABC):

@@ -1,6 +1,0 @@
-{$DOMAIN} {
-	encode zstd gzip
-	# Automatic HTTPS (Let's Encrypt). Security headers are also set by the app itself.
-	reverse_proxy app:8000
-	header -Server
-}

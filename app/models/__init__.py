@@ -1,12 +1,6 @@
-"""Pydantic data transfer models for API requests and responses."""
+"""Data models shared by the detection engine and the desktop agent."""
 
-from app.models.request import PromptAnalyzeRequest
-from app.models.response import (
-    DetectionItem,
-    PromptAnalyzeResponse,
-    RiskReport,
-    SeverityLevel,
-)
+from app.models.response import RiskReport, SeverityLevel
 from app.models.rules import (
     ConfidentialRuleRecord,
     RuleCreateRequest,
@@ -15,9 +9,6 @@ from app.models.rules import (
 )
 
 __all__ = [
-    "PromptAnalyzeRequest",
-    "PromptAnalyzeResponse",
-    "DetectionItem",
     "RiskReport",
     "SeverityLevel",
     "RuleCreateRequest",
@@ -25,4 +16,3 @@ __all__ = [
     "RuleResponse",
     "ConfidentialRuleRecord",
 ]
-
