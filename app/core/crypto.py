@@ -4,7 +4,7 @@ Guarantees:
 1. Confidential terms are encrypted at rest with AES-256-GCM using unique random 96-bit nonces.
 2. Integrity and authenticity are strictly verified via GCM authentication tags.
 3. Blind indexing uses HMAC-SHA256 to allow duplicate term detection without decrypting.
-4. Masking utilities prevent raw sensitive terms from appearing in listings or API responses.
+4. Masking utilities prevent raw sensitive terms from appearing in listings or the UI.
 """
 
 import base64
@@ -16,11 +16,6 @@ from typing import Optional
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
 try:
-    from app.core.config import settings
-except ImportError:
-    settings = None
-
-try:
     from app.core.logging import get_logger
     logger = get_logger(__name__)
 except ImportError:
@@ -28,12 +23,31 @@ except ImportError:
     logger = logging.getLogger(__name__)
 
 
+def _read_key_setting(name: str) -> str:
+    """Reads a key from the environment, falling back to a `.env` file in the working directory.
+
+    Mirrors the previous settings loader so keys configured in `.env` keep decrypting existing vaults.
+    """
+    value = os.getenv(name, "")
+    if value:
+        return value
+    try:
+        with open(".env", encoding="utf-8") as env_file:
+            for line in env_file:
+                key, sep, raw = line.strip().partition("=")
+                if sep and key.strip() == name:
+                    return raw.strip().strip("'\"")
+    except OSError:
+        pass
+    return ""
+
+
 class RuleCryptoService:
     """Manages authenticated encryption at rest and blind indexing for confidential terms."""
 
     def __init__(self, master_key: Optional[bytes] = None, hmac_key: Optional[bytes] = None):
-        enc_key_str = getattr(settings, "ENCRYPTION_KEY", "") or os.getenv("PROMPT_SANITIZER_ENCRYPTION_KEY", "")
-        blind_key_str = getattr(settings, "BLIND_INDEX_KEY", "") or os.getenv("PROMPT_SANITIZER_BLIND_INDEX_KEY", "")
+        enc_key_str = _read_key_setting("PROMPT_SANITIZER_ENCRYPTION_KEY")
+        blind_key_str = _read_key_setting("PROMPT_SANITIZER_BLIND_INDEX_KEY")
 
         if master_key:
             self._aes_key = master_key
@@ -46,20 +60,6 @@ class RuleCryptoService:
                     self._aes_key = decoded
             except Exception:
                 self._aes_key = hashlib.sha256(enc_key_str.encode("utf-8")).digest()
-        else:
-            self._aes_key = self._local_key("aes", legacy=b"prompt-sanitizer-dev-aes-key-change-in-prod")
-
-        if hmac_key:
-            self._hmac_key = hmac_key
-        elif blind_key_str:
-            try:
-                decoded = base64.b64decode(blind_key_str)
-                if len(decoded) != 32:
-                    self._hmac_key = hashlib.sha256(decoded).digest()
-                else:
-                    self._hmac_key = decoded
-            except Exception:
-                self._hmac_key = hashlib.sha256(blind_key_str.encode("utf-8")).digest()
         else:
             self._aes_key = self._local_key("aes", legacy=b"prompt-sanitizer-dev-aes-key-change-in-prod")
 
@@ -109,22 +109,6 @@ class RuleCryptoService:
         except Exception as exc:
             logger.error("Could not persist local key (%s); using legacy dev key.", type(exc).__name__)
             return hashlib.sha256(legacy).digest()
-
-    def for_user(self, user_id: str) -> "RuleCryptoService":
-        """Derives independent AES and blind-index keys for one user (HKDF-SHA256)."""
-        from cryptography.hazmat.primitives import hashes
-        from cryptography.hazmat.primitives.kdf.hkdf import HKDF
-
-        def derive(master: bytes, purpose: bytes) -> bytes:
-            return HKDF(
-                algorithm=hashes.SHA256(), length=32, salt=None,
-                info=purpose + b":" + user_id.encode("utf-8"),
-            ).derive(master)
-
-        return RuleCryptoService(
-            master_key=derive(self._aes_key, b"ps-aes"),
-            hmac_key=derive(self._hmac_key, b"ps-blind"),
-        )
 
     def encrypt(self, plain_text: str) -> str:
         """Encrypts a plain text term using AES-256-GCM with a unique 12-byte random nonce.

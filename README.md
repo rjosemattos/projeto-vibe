@@ -4,9 +4,11 @@
 
 O **Prompt Sanitizer** é uma solução de engenharia de privacidade construída sob a filosofia de **Privacy by Design** e **Zero-Leakage**. Seu objetivo é atuar como uma barreira inteligente e transparente que impede o vazamento acidental de dados sensíveis (CPF, CNPJ, cartões de crédito, e-mails, telefones, chaves de API, tokens, senhas e **termos confidenciais de negócio**) em ferramentas de IA como **ChatGPT, Claude, Microsoft Copilot, Gemini, DeepSeek, Cursor e VS Code**.
 
-O sistema opera em **dois modos complementares** que compartilham o mesmo motor criptográfico e analítico **100% local**:
-1. 🖥️ **Agente Desktop Global para Windows (Tempo Real dentro dos Chats de IA):** Roda na bandeja do Windows (*System Tray*) com um **HUD Flutuante Always-on-Top**, higienizando automaticamente a área de transferência (`Ctrl+C`/`Ctrl+V`) ou limpando diretamente o texto já digitado dentro da caixa de mensagem do chat da IA via atalho global (`Ctrl+Shift+S`).
-2. 🌐 **Servidor API REST (FastAPI) & Painel Web Local:** Interface web analítica e API RESTful (`/api/v1/analyze` e `/api/v1/rules`) para integração com sistemas e testes detalhados.
+O Prompt Sanitizer é um **agente para Windows que roda em segundo plano** e processa tudo **100% localmente**. Ele fica na bandeja do sistema (*System Tray*), pode iniciar sozinho a cada logon e protege qualquer chat de IA de duas formas:
+* **Clipboard protegido em tempo real:** todo texto copiado (`Ctrl+C`) é higienizado antes de ser colado (`Ctrl+V`).
+* **Limpeza do campo do chat (`Ctrl+Shift+S`):** o texto já digitado na caixa de mensagem da IA é substituído pela versão segura.
+
+Um **HUD flutuante** opcional (*Always-on-Top*) mostra alertas e o escore de risco, e o gerenciador de **termos confidenciais** guarda as regras do usuário em um cofre cifrado com AES-256-GCM.
 
 ---
 
@@ -29,7 +31,7 @@ Com o **Prompt Sanitizer** ativo, o prompt é transformado em menos de **2,5 ms*
 O projeto possui arquitetura modular, desacoplada e processamento **100% local** (nenhum dado sai da máquina do usuário durante a sanitização):
 
 ```text
-          [ Chat de IA Ativo (Windows) / Clipboard / API REST ]
+                [ Chat de IA Ativo (Windows) / Clipboard ]
                                     ↓
          [ 0. Custom Obfuscation Engine (CRUD Termos Confidenciais) ]
          ┌──────────────────────────────────────────────────────────┐
@@ -62,28 +64,29 @@ O projeto possui arquitetura modular, desacoplada e processamento **100% local**
                      [ 4. Sanitization Engine ]
             (Substituição Canônica e Consistência Referencial)
                                     ↓
-     [ Prompt Limpo no Chat da IA / HUD Flutuante / Resposta REST ]
+            [ Prompt Limpo no Chat da IA / HUD Flutuante ]
 ```
 
 ### Estrutura de Diretórios e Módulos
 
-* `app/desktop_agent/` — **Agente Desktop Global para Windows:**
+* `app/desktop_agent/` — **Agente em segundo plano para Windows:**
   * `service.py`: Motor autônomo `DesktopSanitizerService` com persistência local criptografada (`%APPDATA%\PromptSanitizer\rules.enc.json`), CRUD completo e controle de hashes SHA-256 anti-loop.
   * `win32_bridge.py`: Ponte nativa com a API Win32 (`user32.dll` e `kernel32.dll` via `ctypes`), gerenciando leitura/escrita Unicode no clipboard, detecção da janela de chat ativa (`GetForegroundWindow`), simulação de teclas (`Ctrl+A` ➔ `Ctrl+C` ➔ Sanitização ➔ `Ctrl+V`) e atalhos globais do sistema (`RegisterHotKey`).
   * `clipboard_monitor.py`: Daemon `ClipboardGuardMonitor` que monitora e higieniza a área de transferência em tempo real.
   * `ui_hud.py`: Interface gráfica nativa em tema Dark (`PromptSanitizerDesktopApp`), com HUD Flutuante *Always-on-Top*, ícone dinâmico na Bandeja do Windows (*System Tray*) e janela nativa de gerenciamento CRUD (`RulesManagerWindow`).
-* `app/core/` — Configurações (`config.py`), criptografia autenticada AES-256-GCM e blind indexing HMAC-SHA256 (`crypto.py`), middlewares HTTP (`security.py`) e logging com redaction (`logging.py`).
+  * `autostart.py`: Registro do agente para iniciar com o Windows em `HKCU\Software\Microsoft\Windows\CurrentVersion\Run` (sem precisar de administrador), em modo `--background`.
+* `app/core/` — Resolução da pasta de dados do usuário (`paths.py`), criptografia autenticada AES-256-GCM e blind indexing HMAC-SHA256 (`crypto.py`) e logging com redaction (`logging.py`).
 * `app/detection/` — Validadores matemáticos Módulo 11 e Luhn (`validators.py`), detectores especializados (`detectors/`) e motor de resolução de sobreposições (`engine.py`).
 * `app/sanitization/` — Motor de substituição de PII (`engine.py`) e motor de passe único para regras customizadas (`custom_engine.py`).
 * `app/risk/` — Avaliador vetorial de risco de privacidade de 0 a 100 (`analyzer.py`).
-* `app/repositories/` & `app/api/` — Repositório multi-tenant (`rules_repository.py`) e endpoints FastAPI (`routes.py`, `rules_routes.py`).
-* `app/static/` — Interface Web local para análise interativa e gestão de regras no navegador.
+* `app/models/` — Modelos de regras confidenciais (`rules.py`) e níveis de severidade/relatório de risco (`response.py`).
+* `run_desktop_agent.py` — Ponto de entrada: agente (HUD + bandeja), modo `--background`, início automático, auto-teste e sanitizador de linha de comando.
 
 ---
 
-## 🖥️ 3. Como Rodar o Agente Desktop Global (Windows)
+## 🖥️ 3. Como Instalar e Rodar o Agente (Windows)
 
-O **Agente Desktop Global** permite usar o Prompt Sanitizer **diretamente dentro do ChatGPT, Claude, Copilot, Gemini ou qualquer aplicativo no Windows**, sem precisar abrir um site separado.
+O agente protege o **ChatGPT, Claude, Copilot, Gemini ou qualquer aplicativo no Windows** diretamente, sem abrir nenhum site ou servidor.
 
 ### Pré-requisitos
 * Python 3.10 ou superior instalado no Windows.
@@ -103,13 +106,22 @@ pip install -r requirements.txt
 Basta dar **dois cliques** no arquivo:
 👉 **`start_agent_windows.bat`**
 
-*(Ele cria o `.venv` e instala as dependências na primeira execução e inicia o agente em segundo plano via `pythonw`; use `start_agent_windows.bat --console` para ver logs e erros, abrindo o HUD flutuante no canto inferior direito da tela e o ícone de escudo na bandeja do Windows perto do relógio).*
+*(Ele cria o `.venv` e instala as dependências na primeira execução e inicia o agente em segundo plano via `pythonw`, apenas com o ícone de escudo na bandeja perto do relógio; o HUD flutuante abre com `Ctrl+Shift+H` ou pelo menu da bandeja. Use `start_agent_windows.bat --console` para ver logs e erros com o HUD visível.)*
 
 ### Opção B: Iniciar via Terminal
 ```powershell
-python run_desktop_agent.py
+python run_desktop_agent.py                 # HUD + ícone na bandeja
+pythonw run_desktop_agent.py --background   # só a bandeja, sem console
 ```
 Apenas uma instância roda por vez; abrir uma segunda exibe um aviso.
+
+### Rodar em Segundo Plano Junto com o Windows
+O agente precisa acessar o clipboard, a janela ativa e os atalhos globais da sessão do usuário. Por isso ele não é um *Windows Service* clássico (que roda isolado na Sessão 0 e não enxerga a área de trabalho): ele é registrado para iniciar **no logon do usuário**, direto na bandeja, sem janela e sem precisar de administrador. Escolha uma das formas:
+* Clique com o botão direito no ícone da bandeja e marque **"Iniciar com o Windows"**.
+* Ou execute `start_agent_windows.bat --install` (para remover: `start_agent_windows.bat --uninstall`).
+* Ou pelo terminal: `python run_desktop_agent.py --enable-autostart` / `--disable-autostart`.
+
+O registro aponta para o `pythonw.exe` do `.venv` (ou para o `PromptSanitizerAgent.exe`, se você usar o executável) com a flag `--background`. Se você mover a pasta do projeto ou o `.exe`, registre de novo.
 
 ### Opção C: Gerar um Executável `.exe` Único para Windows
 Caso queira empacotar todo o projeto em um único arquivo executável (`dist\PromptSanitizerAgent.exe`) que roda sem precisar abrir terminal:
@@ -118,12 +130,13 @@ Caso queira empacotar todo o projeto em um único arquivo executável (`dist\Pro
    ```text
    dist\PromptSanitizerAgent.exe
    ```
+3. Para iniciar o executável com o Windows: `PromptSanitizerAgent.exe --enable-autostart`.
 
 ---
 
 ### ⚡ Como Usar o Agente em Tempo Real nos Chats de IA
 
-Com o Agente aberto no Windows, você tem **dois fluxos de proteção simultâneos**:
+Com o agente rodando no Windows, você tem **dois fluxos de proteção simultâneos**:
 
 1. **Auto-Sanitização de Clipboard (`Ctrl+C` / `Ctrl+V` Automático):**
    * Quando o botão estiver **`🟢 LIGADO (ON)`**, qualquer texto copiado (`Ctrl+C`) de um documento, código ou planilha que contenha CPFs, cartões, e-mails, chaves de API ou termos confidenciais do seu CRUD é **automaticamente higienizado na memória do Windows**.
@@ -148,51 +161,9 @@ Com o Agente aberto no Windows, você tem **dois fluxos de proteção simultâne
 
 ---
 
-## 🌐 4. Como Rodar o Servidor API FastAPI e Interface Web
+## 🧪 4. Execução dos Testes Automatizados
 
-Além do Agente Desktop, você pode rodar o servidor FastAPI com a interface web completa e documentação Swagger/OpenAPI:
-
-### Passo 1: Ativar o ambiente virtual
-* **Linux / macOS:**
-  ```bash
-  python3 -m venv .venv
-  source .venv/bin/activate
-  pip install -r requirements.txt
-  ```
-* **Windows (PowerShell):**
-  ```powershell
-  python -m venv .venv
-  .venv\Scripts\Activate.ps1
-  pip install -r requirements.txt
-  ```
-
-### Passo 2: Iniciar o servidor
-Atalhos que criam o `.venv`, instalam as dependências e abrem o navegador (escolhem outra porta se a 8000 estiver ocupada):
-```bash
-./start_server.sh              # Linux / macOS
-start_server_windows.bat       # Windows
-python run_server.py --port 9000 --no-browser   # direto
-```
-Ou manualmente: `uvicorn app.main:app --reload --host 127.0.0.1 --port 8000`.
-
-### Passo 3: Acessar no Navegador
-* **Interface Web Principal:** [http://localhost:8000](http://localhost:8000)
-* **Documentação Interativa da API (Swagger UI):** [http://localhost:8000/docs](http://localhost:8000/docs) — disponível apenas com `PROMPT_SANITIZER_DEBUG=True` (veja `.env.example`).
-* **Atalho na interface:** `Ctrl + Enter` analisa o prompt; o layout é responsivo para celular/tablet.
-
-### Principais Endpoints da API REST
-* `GET /health` — Verificação de integridade do serviço.
-* `POST /api/v1/analyze` — Analisa e sanitiza um prompt aplicando regras customizadas do usuário + detecção matemática de PII + cálculo de risco.
-* `POST /api/v1/rules` — Cria uma nova regra confidencial criptografada com AES-256-GCM.
-* `GET /api/v1/rules` — Lista as regras ativas do usuário (com termos mascarados `C***R`).
-* `PUT /api/v1/rules/{rule_id}` — Atualiza termo, tag ou flags de uma regra existente.
-* `DELETE /api/v1/rules/{rule_id}` — Remove uma regra do cofre.
-
----
-
-## 🧪 5. Execução dos Testes Automatizados
-
-O projeto conta com **105 testes automatizados** cobrindo validadores matemáticos (CPF, CNPJ, Luhn), criptografia AES-256-GCM, blind indexing HMAC-SHA256, motor regex de passe único, API CRUD, proteção anti-ReDoS, autenticação segura (Argon2id + CSRF) e integração Supabase / Google OAuth JWT:
+A suíte automatizada cobre os validadores matemáticos (CPF, CNPJ, Luhn), a criptografia AES-256-GCM, o blind indexing HMAC-SHA256, o motor regex de passe único, a proteção anti-ReDoS, o filtro de logs e o pipeline do agente (clipboard, serviço de regras e início automático):
 
 ```bash
 # Instalar dependências de desenvolvimento
@@ -201,7 +172,7 @@ pip install -r requirements-dev.txt
 # Executar toda a suíte de testes
 pytest -v
 
-# Executar o auto-teste rápido do Agente Desktop no terminal
+# Executar o auto-teste rápido do agente no terminal
 python run_desktop_agent.py --self-test
 ```
 
@@ -215,10 +186,10 @@ O código de saída é `10` quando dados sensíveis foram encontrados e `0` quan
 
 ---
 
-## 🔒 6. Garantias de Privacidade & Segurança
+## 🔒 5. Garantias de Privacidade & Segurança
 
 1. **Zero Persistência de Texto Claro (AES-256-GCM + Blind Index):**
-   * Termos confidenciais cadastrados pelos usuários nunca são gravados em texto claro em banco de dados, arquivos JSON ou logs.
+   * Termos confidenciais cadastrados pelos usuários nunca são gravados em texto claro em arquivos ou logs.
    * Cada termo é cifrado com **AES-256-GCM** usando um nonce aleatório único de 96 bits (`os.urandom(12)`) e verificado contra duplicidade via **HMAC-SHA256 Blind Index**.
 2. **Processamento Estritamente Local:**
    * Nenhuma informação é transmitida para servidores externos durante a análise e higienização.
@@ -227,59 +198,14 @@ O código de saída é `10` quando dados sensíveis foram encontrados e `0` quan
    * Cartões de crédito passam obrigatoriamente pelo **Algoritmo de Luhn (Módulo 10)**.
 4. **Imunidade contra ReDoS e Colisões em Cascata:**
    * Termos customizados passam por `re.escape()` e são compilados em uma união regex ordenada decrescentemente por tamanho, executada em **passe único $O(N)$**, impedindo substituições em cascata ou *catastrophic backtracking*.
-5. **Logs e Respostas Redigidos (`PrivacyRedactingFilter`):**
-   * Prompts brutos e valores sensíveis jamais são registrados em logs ou retornados sem máscara.
+5. **Logs Redigidos (`PrivacyRedactingFilter`):**
+   * Prompts brutos e valores sensíveis jamais são registrados em logs ou exibidos sem máscara.
 
 ---
 
-## ☁️ 7. Hospedagem Gratuita na Vercel + Supabase (E-mail e Senha)
+## 🔑 6. Chaves de Criptografia
 
-O projeto está configurado para rodar de forma serverless na **Vercel** com banco PostgreSQL e autenticação segura no **Supabase**:
-
-### Passo a Passo:
-
-1. **Configurar o Supabase (Gratuito):**
-   - Crie uma conta em [supabase.com](https://supabase.com) e crie um novo projeto.
-   - No menu lateral **SQL Editor**, cole e execute o script [`supabase_schema.sql`](file:///home/rodrigo/Documentos/repos/projeto-vibe/supabase_schema.sql).
-   - No topo do painel, clique no botão **Connect** e copie a **URI** (modo Transaction Pooler na porta 6543 ou conexão direta).
-   - Em **Authentication > Users**, clique em **Add user > Create user** para cadastrar os e-mails autorizados (ex: `aluno@cesar.school`) e suas senhas iniciais.
-   - *(Opcional)* Em **Authentication > Providers > Email**, você pode desmarcar *Enable Signup* para garantir que apenas usuários criados por você consigam entrar.
-
-2. **Deploy na Vercel (Gratuito):**
-   - Conecte o repositório na [vercel.com](https://vercel.com).
-   - Em **Settings > Environment Variables**, adicione:
-     * `DATABASE_URL`: URI do banco copiada do Supabase.
-     * `SUPABASE_URL`: URL do projeto no Supabase (ex: `https://[REF].supabase.co`).
-     * `SUPABASE_ANON_KEY`: Chave anônima pública do Supabase (`anon` `public`).
-     * `SUPABASE_JWT_SECRET`: Segredo JWT do Supabase (em *Project Settings > API > JWT Secret*).
-     * `ALLOWED_EMAIL_DOMAINS`: `cesar.school`
-     * `PROMPT_SANITIZER_ENCRYPTION_KEY`: Chave aleatória Base64 de 32 bytes para cifrar os termos com AES-256-GCM.
-     * `PROMPT_SANITIZER_BLIND_INDEX_KEY`: Chave aleatória Base64 de 32 bytes para o índice cego HMAC.
-   - Clique em **Deploy**. A Vercel fornecerá seu link público seguro HTTPS (ex: `https://seu-projeto.vercel.app`).
-
-3. **Como funciona o Login:**
-   - Na tela de login, o usuário digita seu e-mail institucional `@cesar.school` e senha.
-   - A autenticação valida a identidade e a restrição de domínio tanto no cliente quanto no servidor.
-   - Cada usuário tem seu cofre de termos isolado no PostgreSQL, e os prompts analisados não são armazenados.
-
----
-
-### Opção B: Hospedagem com Docker e Caddy (VM Própria / VPS)
-
-Com `PROMPT_SANITIZER_AUTH_ENABLED=true` o servidor exige login com sessões seguras em cookies, senhas Argon2id e regras locais persistidas em SQLite:
-
-```bash
-cp .env.example .env     # preencha DOMAIN e as duas chaves
-docker compose up -d     # app + Caddy com HTTPS automático
-docker compose exec app python manage_users.py create admin --admin
-```
-Outros comandos: `manage_users.py passwd|disable|enable|list`.
-
----
-
-## 🔑 8. Chaves de Criptografia
-
-Sem configuração, cada instalação gera chaves **aleatórias** (`.aes.key` e `.blind.key`, permissão `0600`) em `%APPDATA%\PromptSanitizer` (Windows) ou `~/.config/prompt-sanitizer` (Linux/macOS). Antes, uma chave fixa e pública era usada por padrão; cofres já existentes continuam legíveis com a chave legada até serem recriados. Para usar chaves próprias, defina `PROMPT_SANITIZER_ENCRYPTION_KEY` / `PROMPT_SANITIZER_BLIND_INDEX_KEY` (Base64 de 32 bytes). Use `PROMPT_SANITIZER_DATA_DIR` para mudar a pasta de dados. **Faça backup da pasta**: sem as chaves, as regras não podem ser decifradas. Um `rules.enc.json` ilegível é preservado como `rules.enc.corrupt`.
+Sem configuração, cada instalação gera chaves **aleatórias** (`.aes.key` e `.blind.key`, permissão `0600`) em `%APPDATA%\PromptSanitizer` (Windows) ou `~/.config/prompt-sanitizer` (Linux/macOS). Cofres já existentes continuam legíveis com a chave legada até serem recriados. Para usar chaves próprias, defina `PROMPT_SANITIZER_ENCRYPTION_KEY` e `PROMPT_SANITIZER_BLIND_INDEX_KEY` (Base64 de 32 bytes) como variáveis de ambiente ou em um arquivo `.env` na pasta de onde o agente é iniciado. Use `PROMPT_SANITIZER_DATA_DIR` para mudar a pasta de dados. **Faça backup da pasta**: sem as chaves, as regras não podem ser decifradas. Um `rules.enc.json` ilegível é preservado como `rules.enc.corrupt`.
 
 ---
 

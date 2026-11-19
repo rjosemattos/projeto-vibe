@@ -7,15 +7,13 @@ from pathlib import Path
 
 
 def get_data_dir() -> Path:
-    """Returns (and creates) the per-user data directory, with a portable `.data` or `/tmp` fallback.
+    """Returns (and creates) the per-user data directory, with a portable `.data` or temp-dir fallback.
 
     The `PROMPT_SANITIZER_DATA_DIR` environment variable overrides the default location.
     """
     override = os.getenv("PROMPT_SANITIZER_DATA_DIR")
     if override:
         base_dir = Path(override)
-    elif os.getenv("VERCEL"):
-        base_dir = Path(tempfile.gettempdir()) / "prompt-sanitizer"
     elif sys.platform == "win32":
         appdata = os.getenv("APPDATA")
         base_dir = (

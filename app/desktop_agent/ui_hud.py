@@ -13,6 +13,7 @@ from typing import Callable, Optional
 from uuid import UUID
 
 from app.core.logging import get_logger
+from app.desktop_agent import autostart
 from app.desktop_agent.clipboard_monitor import ClipboardGuardMonitor
 from app.desktop_agent.service import DesktopSanitizeResult, DesktopSanitizerService
 from app.desktop_agent.win32_bridge import GlobalHotkeyListener, IS_WINDOWS, Win32Bridge
@@ -331,7 +332,7 @@ class RulesManagerWindow(tk.Toplevel):
 class PromptSanitizerDesktopApp:
     """Main controller for the Always-on-Top HUD, System Tray Icon, and Real-Time Interceptors."""
 
-    def __init__(self, service: Optional[DesktopSanitizerService] = None):
+    def __init__(self, service: Optional[DesktopSanitizerService] = None, start_hidden: bool = False):
         self.service = service or DesktopSanitizerService()
         self.root = tk.Tk()
         self.root.title("Prompt Sanitizer")
@@ -376,6 +377,12 @@ class PromptSanitizerDesktopApp:
 
         self._build_hud_ui()
         self._setup_system_tray()
+
+        # Background mode: run only from the tray (the HUD stays reachable via tray or Ctrl+Shift+H).
+        # Without a tray icon the HUD is kept visible so the agent can always be reached.
+        if start_hidden and self._tray_icon is not None:
+            self.root.withdraw()
+            self._hud_visible = False
 
     # ------------------------------------------------------------------
     # Tkinter Clipboard Fallbacks (for non-Win32 environments)
@@ -619,6 +626,12 @@ class PromptSanitizerDesktopApp:
                     "Regras Confidenciais (CRUD)",
                     lambda icon, item: self._ui_queue.put(self.open_rules_manager),
                 ),
+                pystray.MenuItem(
+                    "Iniciar com o Windows",
+                    lambda icon, item: self._toggle_autostart(),
+                    checked=lambda item: autostart.is_enabled(),
+                    visible=autostart.IS_WINDOWS,
+                ),
                 pystray.Menu.SEPARATOR,
                 pystray.MenuItem(
                     "Encerrar Prompt Sanitizer",
@@ -673,6 +686,18 @@ class PromptSanitizerDesktopApp:
             try:
                 self._tray_icon.icon = self._create_tray_image(is_on)
                 self._tray_icon.title = f"Prompt Sanitizer — {'Ativo (ON)' if is_on else 'Pausado (OFF)'}"
+            except Exception:
+                pass
+
+    def _toggle_autostart(self) -> None:
+        """Registers/unregisters the agent to start silently in the tray at Windows logon."""
+        try:
+            autostart.set_enabled(not autostart.is_enabled())
+        except OSError as exc:
+            logger.error("Could not change start-with-Windows setting: %s", type(exc).__name__)
+        if self._tray_icon:
+            try:
+                self._tray_icon.update_menu()
             except Exception:
                 pass
 
