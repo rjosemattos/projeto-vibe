@@ -215,7 +215,7 @@ class RulesManagerWindow(tk.Toplevel):
         self.tree.column("case", width=110, anchor="center")
         self.tree.column("word", width=110, anchor="center")
 
-        self.tree.pack(fill=tk.BOTH, expand=True, side=tk.TOP)
+       
 
         # Bottom Actions
         actions = tk.Frame(table_frame, bg=BG_CARD, pady=6)
@@ -247,6 +247,8 @@ class RulesManagerWindow(tk.Toplevel):
             cursor="hand2",
         ).pack(side=tk.LEFT)
 
+        self.tree.pack(fill=tk.BOTH, expand=True, side=tk.TOP)
+        
     def _refresh_table(self) -> None:
         for item in self.tree.get_children():
             self.tree.delete(item)
