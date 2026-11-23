@@ -333,8 +333,6 @@ class DesktopSanitizerService:
                     continue
             return decrypted_list
 
-# TESTE EDUARDO
-
     # ------------------------------------------------------------------
     # Full Real-Time Sanitization Pipeline
     # ------------------------------------------------------------------
