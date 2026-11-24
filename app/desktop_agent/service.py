@@ -34,6 +34,8 @@ from app.models.rules import (
 from app.risk.analyzer import RiskAnalyzer
 from app.sanitization.custom_engine import CustomObfuscationEngine, DecryptedRule
 from app.sanitization.engine import SanitizationEngine
+from typing import Dict, List, Optional, Tuple
+from app.core.crypto import RuleCryptoService, decrypt_backup, encrypt_backup
 
 logger = get_logger(__name__)
 
@@ -312,6 +314,46 @@ class DesktopSanitizerService:
                 self._save_encrypted_store()
                 return True
             return False
+
+
+    def export_rules(self, destination: Path, password: str) -> int:
+        """Writes all rules to a password-protected backup file; returns the count."""
+        with self._lock:
+            items = [
+                {
+                    "term": rule.term,
+                    "replacement_tag": rule.replacement_tag,
+                    "case_sensitive": rule.case_sensitive,
+                    "match_whole_word": rule.match_whole_word,
+                }
+                for rule in self._get_ephemeral_decrypted_rules()
+            ]
+        payload = encrypt_backup(json.dumps(items).encode("utf-8"), password)
+        Path(destination).write_text(json.dumps(payload, indent=2), encoding="utf-8")
+        return len(items)
+
+    def import_rules(self, source: Path, password: str) -> Tuple[int, int]:
+        """Imports rules from a backup file. Returns (imported, skipped)."""
+        try:
+            payload = json.loads(Path(source).read_text(encoding="utf-8"))
+        except (OSError, ValueError) as exc:
+            raise ValueError("Não foi possível ler o arquivo de backup.") from exc
+
+        items = json.loads(decrypt_backup(payload, password).decode("utf-8"))
+        imported = skipped = 0
+        for item in items:
+            try:
+                self.create_rule(
+                    term=item["term"],
+                    replacement_tag=item["replacement_tag"],
+                    case_sensitive=item.get("case_sensitive", False),
+                    match_whole_word=item.get("match_whole_word", True),
+                )
+                imported += 1
+            except ValueError:  # termo já cadastrado ou inválido
+                skipped += 1
+        return imported, skipped
+    
 
     def _get_ephemeral_decrypted_rules(self) -> List[DecryptedRule]:
         """Decrypts rules strictly in local scope for a single sanitization pass."""

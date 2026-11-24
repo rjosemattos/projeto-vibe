@@ -209,6 +209,11 @@ Sem configuração, cada instalação gera chaves **aleatórias** (`.aes.key` e 
 
 ---
 
+## 🔑 7. Confidencialidade e Integridade
+Os botões Exportar e Importar salvam/carregam o cofre em um arquivo .psbackup cifrado com a senha definida pelo usuário (sem essa senha, o arquivo não pode ser aberto).
+
+---
+
 ## 📄 Licença
 
 Desenvolvido para fins educacionais, conformidade com privacidade (LGPD/GDPR) e segurança da informação em ambientes de IA Generativa.

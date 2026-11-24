@@ -18,6 +18,9 @@ from app.desktop_agent.clipboard_monitor import ClipboardGuardMonitor
 from app.desktop_agent.service import DesktopSanitizeResult, DesktopSanitizerService
 from app.desktop_agent.win32_bridge import GlobalHotkeyListener, IS_WINDOWS, Win32Bridge
 from app.models.response import SeverityLevel
+from pathlib import Path
+from tkinter import filedialog, messagebox, simpledialog, ttk
+
 
 logger = get_logger(__name__)
 
@@ -247,6 +250,32 @@ class RulesManagerWindow(tk.Toplevel):
             cursor="hand2",
         ).pack(side=tk.LEFT)
 
+        tk.Button(
+            actions,
+            text="📥 Importar",
+            command=self._on_import_clicked,
+            bg="#1e293b",
+            fg=ACCENT_BLUE,
+            relief=tk.FLAT,
+            padx=12,
+            pady=4,
+            font=("Segoe UI", 9, "bold"),
+            cursor="hand2",
+        ).pack(side=tk.RIGHT)
+
+        tk.Button(
+            actions,
+            text="📤 Exportar",
+            command=self._on_export_clicked,
+            bg="#1e293b",
+            fg=ACCENT_BLUE,
+            relief=tk.FLAT,
+            padx=12,
+            pady=4,
+            font=("Segoe UI", 9, "bold"),
+            cursor="hand2",
+        ).pack(side=tk.RIGHT, padx=(0, 8))
+
         self.tree.pack(fill=tk.BOTH, expand=True, side=tk.TOP)
         
     def _refresh_table(self) -> None:
@@ -329,6 +358,63 @@ class RulesManagerWindow(tk.Toplevel):
             self._reset_form()
         self._refresh_table()
         self.on_rules_changed()
+
+    BACKUP_FILETYPES = [("Backup do Prompt Sanitizer", "*.psbackup")]
+
+    def _on_export_clicked(self) -> None:
+        path = filedialog.asksaveasfilename(
+            parent=self,
+            title="Exportar regras",
+            defaultextension=".psbackup",
+            filetypes=self.BACKUP_FILETYPES,
+        )
+        if not path:
+            return
+        password = simpledialog.askstring(
+            "Senha do backup",
+            "Crie uma senha para o backup (mínimo 8 caracteres):",
+            show="*",
+            parent=self,
+        )
+        if not password:
+            return
+        confirmation = simpledialog.askstring(
+            "Senha do backup", "Repita a senha:", show="*", parent=self
+        )
+        if confirmation != password:
+            messagebox.showerror("Exportar regras", "As senhas não conferem.", parent=self)
+            return
+        try:
+            count = self.service.export_rules(Path(path), password)
+        except (ValueError, OSError) as exc:
+            messagebox.showerror("Exportar regras", str(exc), parent=self)
+            return
+        messagebox.showinfo("Exportar regras", f"{count} regra(s) exportada(s).", parent=self)
+
+    def _on_import_clicked(self) -> None:
+        path = filedialog.askopenfilename(
+            parent=self, title="Importar regras", filetypes=self.BACKUP_FILETYPES
+        )
+        if not path:
+            return
+        password = simpledialog.askstring(
+            "Senha do backup", "Senha do backup:", show="*", parent=self
+        )
+        if not password:
+            return
+        try:
+            imported, skipped = self.service.import_rules(Path(path), password)
+        except (ValueError, RulesStoreError) as exc:
+            messagebox.showerror("Importar regras", str(exc), parent=self)
+            return
+        self._refresh_table()
+        self.on_rules_changed()
+        messagebox.showinfo(
+            "Importar regras",
+            f"{imported} regra(s) importada(s); "
+            f"{skipped} ignorada(s) por já existirem ou serem inválidas.",
+            parent=self,
+        )
 
 
 class PromptSanitizerDesktopApp:
