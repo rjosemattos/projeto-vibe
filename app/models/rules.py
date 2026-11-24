@@ -116,7 +116,7 @@ class ConfidentialRuleRecord:
     def __init__(
         self,
         id: UUID,
-        user_id: str,
+        
         encrypted_term: str,
         term_blind_index: str,
         replacement_tag: str,
@@ -126,7 +126,7 @@ class ConfidentialRuleRecord:
         updated_at: Optional[datetime] = None,
     ):
         self.id = id
-        self.user_id = user_id
+        
         self.encrypted_term = encrypted_term
         self.term_blind_index = term_blind_index
         self.replacement_tag = replacement_tag

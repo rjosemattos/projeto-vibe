@@ -1,4 +1,5 @@
 """Unit and integration tests for the Windows Global Desktop Agent."""
+import json 
 
 from pathlib import Path
 from typing import List, Tuple
@@ -155,3 +156,18 @@ def test_ai_window_context_detection():
     assert Win32Bridge.is_ai_context("projeto-vibe - Visual Studio Code") is True
     assert Win32Bridge.is_ai_context("Calculadora") is False
 
+
+def test_reads_legacy_store_with_user_id_and_drops_it_on_save(tmp_path: Path):
+    store_file = tmp_path / "rules.enc.json"
+    DesktopSanitizerService(storage_path=store_file).create_rule("CESAR", "[COMPANY_SENSITIVE]")
+
+    # Simula um cofre gravado pela versão antiga, com o campo user_id
+    data = json.loads(store_file.read_text(encoding="utf-8"))
+    data[0]["user_id"] = "windows-desktop-user"
+    store_file.write_text(json.dumps(data), encoding="utf-8")
+
+    service = DesktopSanitizerService(storage_path=store_file)
+    assert [rule.masked_term for rule in service.list_rules()] == ["C***R"]
+
+    service.create_rule("Projeto Vibe", "[PROJETO_SECRETO]")  # força uma nova gravação
+    assert "user_id" not in store_file.read_text(encoding="utf-8")

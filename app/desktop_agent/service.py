@@ -81,9 +81,9 @@ class DesktopSanitizerService:
         self,
         storage_path: Optional[Path] = None,
         crypto_service: Optional[RuleCryptoService] = None,
-        user_id: str = "windows-desktop-user",
+        
     ):
-        self.user_id = user_id
+        
         self.storage_path = storage_path or get_default_storage_path()
         self.crypto_service = crypto_service or RuleCryptoService()
         self.detection_engine = DetectionEngine()
@@ -137,7 +137,7 @@ class DesktopSanitizerService:
                     )
                     record = ConfidentialRuleRecord(
                         id=rule_id,
-                        user_id=item.get("user_id", self.user_id),
+                        
                         encrypted_term=item["encrypted_term"],
                         term_blind_index=item["term_blind_index"],
                         replacement_tag=item["replacement_tag"],
@@ -166,7 +166,7 @@ class DesktopSanitizerService:
                 payload = [
                     {
                         "id": str(rec.id),
-                        "user_id": rec.user_id,
+                        
                         "encrypted_term": rec.encrypted_term,
                         "term_blind_index": rec.term_blind_index,
                         "replacement_tag": rec.replacement_tag,
@@ -211,7 +211,7 @@ class DesktopSanitizerService:
             encrypted_term = self.crypto_service.encrypt(req.term)
             record = ConfidentialRuleRecord(
                 id=uuid4(),
-                user_id=self.user_id,
+              
                 encrypted_term=encrypted_term,
                 term_blind_index=blind_index,
                 replacement_tag=req.replacement_tag,
