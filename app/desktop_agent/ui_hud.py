@@ -324,6 +324,16 @@ class RulesManagerWindow(tk.Toplevel):
             messagebox.showinfo("Seleção", "Selecione uma regra na tabela para excluir.", parent=self)
             return
         rule_id = UUID(selected[0])
+        masked, tag, *_ = self.tree.item(selected[0], "values")
+        confirmed = messagebox.askyesno(
+            "Excluir regra",
+            f"Deseja excluir a regra abaixo?\n\nTermo: {masked}\nTag: {tag}\n\n"
+            "Esta ação não pode ser desfeita.",
+            icon="warning",
+            parent=self,
+        )
+        if not confirmed:
+            return
         self.service.delete_rule(rule_id)
         if self.editing_rule_id == rule_id:
             self._reset_form()
