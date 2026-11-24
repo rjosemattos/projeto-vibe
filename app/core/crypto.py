@@ -14,6 +14,7 @@ import os
 import secrets
 from typing import Optional
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+from cryptography.hazmat.primitives.kdf.scrypt import Scrypt
 
 try:
     from app.core.logging import get_logger
@@ -155,3 +156,47 @@ class RuleCryptoService:
         if length <= 4:
             return f"{clean[0]}**{clean[-1]}"
         return f"{clean[0]}***{clean[-1]}"
+
+BACKUP_FORMAT = "prompt-sanitizer-rules-backup"
+MIN_BACKUP_PASSWORD_LENGTH = 8
+
+
+def _password_key(password: str, salt: bytes) -> bytes:
+    """Derives a 256-bit key from the backup password with scrypt."""
+    return Scrypt(salt=salt, length=32, n=2**14, r=8, p=1).derive(password.encode("utf-8"))
+
+
+def _b64(raw: bytes) -> str:
+    return base64.b64encode(raw).decode("ascii")
+
+
+def encrypt_backup(data: bytes, password: str) -> dict:
+    """Encrypts a rules backup with a key derived from the user's password."""
+    if len(password) < MIN_BACKUP_PASSWORD_LENGTH:
+        raise ValueError(
+            f"A senha do backup precisa ter pelo menos {MIN_BACKUP_PASSWORD_LENGTH} caracteres."
+        )
+    salt = secrets.token_bytes(16)
+    nonce = secrets.token_bytes(12)
+    ciphertext = AESGCM(_password_key(password, salt)).encrypt(nonce, data, None)
+    return {
+        "format": BACKUP_FORMAT,
+        "version": 1,
+        "kdf": "scrypt",
+        "salt": _b64(salt),
+        "nonce": _b64(nonce),
+        "ciphertext": _b64(ciphertext),
+    }
+
+
+def decrypt_backup(payload: dict, password: str) -> bytes:
+    """Decrypts a rules backup; raises ValueError on a wrong password or a tampered file."""
+    if payload.get("format") != BACKUP_FORMAT or payload.get("version") != 1:
+        raise ValueError("Arquivo de backup inválido.")
+    try:
+        salt = base64.b64decode(payload["salt"])
+        nonce = base64.b64decode(payload["nonce"])
+        ciphertext = base64.b64decode(payload["ciphertext"])
+        return AESGCM(_password_key(password, salt)).decrypt(nonce, ciphertext, None)
+    except Exception as exc:
+        raise ValueError("Senha incorreta ou arquivo de backup corrompido.") from exc
