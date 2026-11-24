@@ -6,9 +6,16 @@ import pytest
 
 from app.desktop_agent.clipboard_monitor import ClipboardGuardMonitor
 from app.desktop_agent.service import DesktopSanitizeResult, DesktopSanitizerService
-from app.desktop_agent.win32_bridge import Win32Bridge
+from app.desktop_agent.win32_bridge import IS_WINDOWS, Win32Bridge
 from app.models.response import SeverityLevel
 
+uses_real_clipboard = pytest.mark.skipif(
+    IS_WINDOWS,
+    reason=(
+        "No Windows o Win32Bridge usa o clipboard real e simula teclas; "
+        "fluxo validado manualmente."
+    ),
+)
 
 class FakeClipboard:
     """In-memory clipboard simulator for deterministic testing."""
@@ -80,6 +87,7 @@ def test_desktop_crud_update_and_delete(tmp_path: Path):
     assert len(service.list_rules()) == 0
 
 
+@uses_real_clipboard
 def test_clipboard_auto_sanitization_and_loop_prevention(tmp_path: Path):
     """Verifies real-time clipboard monitoring sanitizes sensitive prompts once without looping."""
     store_file = tmp_path / "rules.enc.json"
@@ -118,6 +126,7 @@ def test_clipboard_auto_sanitization_and_loop_prevention(tmp_path: Path):
     assert len(events) == 1
 
 
+@uses_real_clipboard
 def test_active_chat_hotkey_in_place_sanitization(tmp_path: Path):
     """Verifies Ctrl+Shift+S active chat sanitization flow."""
     store_file = tmp_path / "rules.enc.json"
