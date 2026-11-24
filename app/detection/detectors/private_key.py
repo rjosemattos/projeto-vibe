@@ -1,4 +1,4 @@
-"""Detector for PEM-encoded private keys (RSA, EC, OpenSSH, PGP, PKCS#8)."""
+"""Detector de chaves privadas em formato PEM (RSA, EC, OpenSSH, PGP, PKCS#8)."""
 
 import hashlib
 import re
@@ -8,18 +8,18 @@ from app.models.response import SeverityLevel
 
 
 class PrivateKeyDetector(BaseDetector):
-    """Detects full PEM private key blocks, or a truncated block lacking the END marker."""
+    """Detecta blocos PEM completos de chave privada, ou blocos cortados sem o marcador END."""
 
     name = "private_key_detector"
     entity_type = "PRIVATE_KEY"
 
-    # Bounded quantifiers keep matching linear and ReDoS-safe.
+    # Quantificadores limitados mantêm a busca linear e segura contra ReDoS.
     FULL_BLOCK = re.compile(
         r"-----BEGIN (?:[A-Z0-9]+ )*PRIVATE KEY(?: BLOCK)?-----"
         r"[A-Za-z0-9+/=:,\s.\-]{16,20000}?"
         r"-----END (?:[A-Z0-9]+ )*PRIVATE KEY(?: BLOCK)?-----"
     )
-    # Fallback for pasted fragments with no END marker: redact header + following base64 lines
+    # Alternativa para trechos colados sem o marcador END: oculta o cabeçalho e as linhas base64 seguintes
     PARTIAL_BLOCK = re.compile(
         r"-----BEGIN (?:[A-Z0-9]+ )*PRIVATE KEY(?: BLOCK)?-----(?:[ \t]*\r?\n[A-Za-z0-9+/=:,.\- \t]{1,200}){0,400}"
     )

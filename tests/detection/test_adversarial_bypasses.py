@@ -1,4 +1,4 @@
-"""Adversarial and complex format bypass tests (JSON, Markdown, Headers, Obfuscation)."""
+"""Testes com formatos complexos e tentativas de burlar a detecção (JSON, Markdown, cabeçalhos, ofuscação)."""
 
 from app.detection.engine import DetectionEngine
 from app.sanitization.engine import SanitizationEngine
@@ -60,8 +60,8 @@ def test_multiple_repeated_and_distinct_entities_mix():
     detections = engine.analyze(prompt)
     sanitized = sanitizer.sanitize(prompt, detections)
 
-    # 123.456.789-09 appears twice -> should both be [CPF_USUARIO_1]
-    # 529.982.247-25 appears once -> should be [CPF_USUARIO_2]
+    # 123.456.789-09 aparece duas vezes -> as duas viram [CPF_USUARIO_1]
+    # 529.982.247-25 aparece uma vez -> vira [CPF_USUARIO_2]
     assert sanitized.count("[CPF_USUARIO_1]") == 2
     assert sanitized.count("[CPF_USUARIO_2]") == 1
     assert "123.456.789-09" not in sanitized

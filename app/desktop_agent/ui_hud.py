@@ -1,7 +1,8 @@
-"""Windows Desktop Floating HUD (Always-on-Top), System Tray, and Native CRUD Manager.
+"""HUD flutuante do agente (sempre visível), ícone na bandeja e janela de gerenciamento das regras (CRUD).
 
-Built with Tkinter + Win32 native ctypes and optional `pystray`/`Pillow` for the Windows
-System Tray icon, providing a modern dark corporate interface that floats alongside AI chats.
+Feito com Tkinter + chamadas nativas da Win32 via ctypes e, opcionalmente, `pystray`/`Pillow`
+para o ícone na bandeja do Windows. A interface usa um tema escuro e fica flutuando ao lado
+dos chats de IA.
 """
 
 import queue
@@ -24,7 +25,7 @@ from tkinter import filedialog, messagebox, simpledialog, ttk
 
 logger = get_logger(__name__)
 
-# Color Palette (Corporate Dark Navy / Cyber Theme)
+# Paleta de cores (tema escuro azul-marinho)
 BG_DARK = "#0b1120"
 BG_CARD = "#131c31"
 BG_INPUT = "#080d1a"
@@ -39,7 +40,7 @@ COLOR_DANGER = "#f43f5e"
 
 
 class RulesManagerWindow(tk.Toplevel):
-    """Native desktop window for CRUD management of confidential terms."""
+    """Janela nativa para gerenciar (CRUD) os termos confidenciais."""
 
     def __init__(self, parent: tk.Misc, service: DesktopSanitizerService, on_rules_changed: Callable[[], None]):
         super().__init__(parent)
@@ -58,7 +59,7 @@ class RulesManagerWindow(tk.Toplevel):
         self._refresh_table()
 
     def _build_ui(self) -> None:
-        # Header
+        # Cabeçalho
         header = tk.Frame(self, bg=BG_CARD, padx=16, pady=12, highlightthickness=1, highlightbackground=BORDER_COLOR)
         header.pack(fill=tk.X, padx=12, pady=(12, 8))
 
@@ -77,14 +78,14 @@ class RulesManagerWindow(tk.Toplevel):
             font=("Segoe UI", 9),
         ).pack(anchor="w", pady=(2, 0))
 
-        # Form Frame
+        # Área do formulário
         form = tk.Frame(self, bg=BG_CARD, padx=16, pady=12, highlightthickness=1, highlightbackground=BORDER_COLOR)
         form.pack(fill=tk.X, padx=12, pady=4)
 
         row1 = tk.Frame(form, bg=BG_CARD)
         row1.pack(fill=tk.X, pady=(0, 8))
 
-        # Term input
+        # Campo do termo
         left_col = tk.Frame(row1, bg=BG_CARD)
         left_col.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 8))
         tk.Label(left_col, text="Termo Sensível (ex: CESAR):", bg=BG_CARD, fg=TEXT_MUTED, font=("Segoe UI", 9, "bold")).pack(anchor="w")
@@ -103,7 +104,7 @@ class RulesManagerWindow(tk.Toplevel):
         )
         self.term_entry.pack(fill=tk.X, ipady=5, pady=(2, 0))
 
-        # Tag input
+        # Campo da tag
         right_col = tk.Frame(row1, bg=BG_CARD)
         right_col.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(8, 0))
         tk.Label(right_col, text="Tag de Substituição (ex: [COMPANY_SENSITIVE]):", bg=BG_CARD, fg=TEXT_MUTED, font=("Segoe UI", 9, "bold")).pack(anchor="w")
@@ -122,7 +123,7 @@ class RulesManagerWindow(tk.Toplevel):
         )
         self.tag_entry.pack(fill=tk.X, ipady=5, pady=(2, 0))
 
-        # Options & Buttons row
+        # Linha de opções e botões
         row2 = tk.Frame(form, bg=BG_CARD)
         row2.pack(fill=tk.X, pady=(4, 0))
 
@@ -182,7 +183,7 @@ class RulesManagerWindow(tk.Toplevel):
             cursor="hand2",
         )
 
-        # Table Frame
+        # Área da tabela
         table_frame = tk.Frame(self, bg=BG_CARD, padx=12, pady=10, highlightthickness=1, highlightbackground=BORDER_COLOR)
         table_frame.pack(fill=tk.BOTH, expand=True, padx=12, pady=(4, 12))
 
@@ -220,7 +221,7 @@ class RulesManagerWindow(tk.Toplevel):
 
        
 
-        # Bottom Actions
+        # Botões de ação abaixo da tabela
         actions = tk.Frame(table_frame, bg=BG_CARD, pady=6)
         actions.pack(fill=tk.X, side=tk.BOTTOM)
 
@@ -281,6 +282,7 @@ class RulesManagerWindow(tk.Toplevel):
     def _refresh_table(self) -> None:
         for item in self.tree.get_children():
             self.tree.delete(item)
+        # R (Read): a tabela mostra só a prévia mascarada devolvida pelo serviço.
         rules = self.service.list_rules()
         for r in rules:
             self.tree.insert(
@@ -311,6 +313,7 @@ class RulesManagerWindow(tk.Toplevel):
         whole_w = self.word_var.get()
 
         try:
+            # Sem regra em edição é um cadastro novo (C); com regra em edição, é uma atualização (U).
             if self.editing_rule_id is None:
                 self.service.create_rule(
                     term=term,
@@ -321,6 +324,7 @@ class RulesManagerWindow(tk.Toplevel):
             else:
                 self.service.update_rule(
                     rule_id=self.editing_rule_id,
+                    # Termo em branco vira None: o serviço mantém o termo atual.
                     term=term if term else None,
                     replacement_tag=tag if tag else None,
                     case_sensitive=case_s,
@@ -340,7 +344,7 @@ class RulesManagerWindow(tk.Toplevel):
         rule_id_str = selected[0]
         values = self.tree.item(rule_id_str, "values")
         self.editing_rule_id = UUID(rule_id_str)
-        self.term_var.set("")  # Never populate raw term back into entry; optional to change
+        self.term_var.set("")  # Nunca devolve o termo original ao campo; trocar o termo é opcional
         self.tag_var.set(values[1])
         self.case_var.set(values[2] == "Sim")
         self.word_var.set(values[3] == "Sim")
@@ -354,6 +358,7 @@ class RulesManagerWindow(tk.Toplevel):
             return
         rule_id = UUID(selected[0])
         masked, tag, *_ = self.tree.item(selected[0], "values")
+        # Confirmação antes de excluir; mostra só o termo mascarado e a tag.
         confirmed = messagebox.askyesno(
             "Excluir regra",
             f"Deseja excluir a regra abaixo?\n\nTermo: {masked}\nTag: {tag}\n\n"
@@ -363,6 +368,7 @@ class RulesManagerWindow(tk.Toplevel):
         )
         if not confirmed:
             return
+        # D (Delete) no serviço; depois a tabela e o contador do HUD são atualizados.
         self.service.delete_rule(rule_id)
         if self.editing_rule_id == rule_id:
             self._reset_form()
@@ -391,6 +397,7 @@ class RulesManagerWindow(tk.Toplevel):
         confirmation = simpledialog.askstring(
             "Senha do backup", "Repita a senha:", show="*", parent=self
         )
+        # Pede a senha duas vezes: um erro de digitação deixaria o backup impossível de abrir.
         if confirmation != password:
             messagebox.showerror("Exportar regras", "As senhas não conferem.", parent=self)
             return
@@ -413,6 +420,7 @@ class RulesManagerWindow(tk.Toplevel):
         if not password:
             return
         try:
+            # Termos que já existem no cofre são pulados e contados como ignorados.
             imported, skipped = self.service.import_rules(Path(path), password)
         except (ValueError, RulesStoreError) as exc:
             messagebox.showerror("Importar regras", str(exc), parent=self)
@@ -428,7 +436,7 @@ class RulesManagerWindow(tk.Toplevel):
 
 
 class PromptSanitizerDesktopApp:
-    """Main controller for the Always-on-Top HUD, System Tray Icon, and Real-Time Interceptors."""
+    """Controlador principal: HUD sempre visível, ícone na bandeja e interceptadores em tempo real."""
 
     def __init__(self, service: Optional[DesktopSanitizerService] = None, start_hidden: bool = False):
         self.service = service or DesktopSanitizerService()
@@ -438,7 +446,7 @@ class PromptSanitizerDesktopApp:
         self.root.attributes("-topmost", True)
         self.root.resizable(True, True)
 
-        # Position HUD in bottom-right of primary screen (clamped to small displays)
+        # Posiciona o HUD no canto inferior direito da tela principal (ajustado para telas pequenas)
         screen_w = self.root.winfo_screenwidth()
         screen_h = self.root.winfo_screenheight()
         hud_w = min(390, max(300, screen_w - 40))
@@ -449,10 +457,10 @@ class PromptSanitizerDesktopApp:
         pos_y = max(0, screen_h - hud_h - 75)
         self.root.geometry(f"{hud_w}x{hud_h}+{pos_x}+{pos_y}")
 
-        # Thread-safe UI event queue
+        # Fila de eventos da interface, segura para uso entre threads
         self._ui_queue: queue.Queue[Callable[[], None]] = queue.Queue()
 
-        # Bridge & Monitor
+        # Ponte com o Windows e monitor do clipboard
         self.bridge = Win32Bridge(
             fallback_get_clipboard=self._tk_get_clipboard,
             fallback_set_clipboard=self._tk_set_clipboard,
@@ -476,14 +484,14 @@ class PromptSanitizerDesktopApp:
         self._build_hud_ui()
         self._setup_system_tray()
 
-        # Background mode: run only from the tray (the HUD stays reachable via tray or Ctrl+Shift+H).
-        # Without a tray icon the HUD is kept visible so the agent can always be reached.
+        # Modo em segundo plano: roda só pela bandeja (o HUD continua acessível pela bandeja ou por Ctrl+Shift+H).
+        # Sem ícone na bandeja, o HUD fica visível para o agente nunca ficar inacessível.
         if start_hidden and self._tray_icon is not None:
             self.root.withdraw()
             self._hud_visible = False
 
     # ------------------------------------------------------------------
-    # Tkinter Clipboard Fallbacks (for non-Win32 environments)
+    # Alternativas de clipboard pelo Tkinter (fora do Windows)
     # ------------------------------------------------------------------
 
     def _tk_get_clipboard(self) -> str:
@@ -501,7 +509,7 @@ class PromptSanitizerDesktopApp:
             pass
 
     # ------------------------------------------------------------------
-    # HUD Interface Construction
+    # Montagem da interface do HUD
     # ------------------------------------------------------------------
 
     def _build_hud_ui(self) -> None:
@@ -515,7 +523,7 @@ class PromptSanitizerDesktopApp:
         )
         main_frame.pack(fill=tk.BOTH, expand=True)
 
-        # 1. Top Header Bar
+        # 1. Barra superior
         top_row = tk.Frame(main_frame, bg=BG_DARK)
         top_row.pack(fill=tk.X, pady=(0, 8))
 
@@ -538,7 +546,7 @@ class PromptSanitizerDesktopApp:
         )
         self.status_pill.pack(side=tk.RIGHT)
 
-        # 2. Active Window Context Indicator
+        # 2. Indicador da janela ativa
         ctx_card = tk.Frame(
             main_frame,
             bg=BG_CARD,
@@ -559,7 +567,7 @@ class PromptSanitizerDesktopApp:
         )
         self.window_label.pack(fill=tk.X)
 
-        # 3. Primary Controls (Toggle ON/OFF + Active Chat Clean Button)
+        # 3. Controles principais (liga/desliga e botão de limpar o chat ativo)
         controls_frame = tk.Frame(main_frame, bg=BG_DARK)
         controls_frame.pack(fill=tk.X, pady=(0, 8))
 
@@ -593,7 +601,7 @@ class PromptSanitizerDesktopApp:
         )
         self.clean_chat_btn.pack(fill=tk.X)
 
-        # 4. Telemetry & Last Action Feedback Box
+        # 4. Quadro de estatísticas e da última ação
         telemetry_card = tk.Frame(
             main_frame,
             bg=BG_CARD,
@@ -638,13 +646,13 @@ class PromptSanitizerDesktopApp:
             anchor="w",
         )
         self.event_banner.pack(fill=tk.BOTH, expand=True)
-        # Keep banner text wrapping in sync with the (resizable) HUD width
+        # Mantém a quebra de linha do aviso de acordo com a largura do HUD (que é redimensionável)
         telemetry_card.bind(
             "<Configure>",
             lambda e: self.event_banner.configure(wraplength=max(120, e.width - 40)),
         )
 
-        # 5. Footer Buttons (CRUD & Hide to Tray)
+        # 5. Botões do rodapé (regras e esconder na bandeja)
         footer_row = tk.Frame(main_frame, bg=BG_DARK)
         footer_row.pack(fill=tk.X)
 
@@ -678,18 +686,18 @@ class PromptSanitizerDesktopApp:
             cursor="hand2",
         ).pack(side=tk.RIGHT)
 
-        # Local keybindings when HUD itself is focused
+        # Atalhos locais quando o próprio HUD está em foco
         self.root.bind("<Control-Shift-S>", lambda _: self._trigger_sanitize_active_chat())
         self.root.bind("<Control-Shift-s>", lambda _: self._trigger_sanitize_active_chat())
         self.root.bind("<Control-Shift-E>", lambda _: self.toggle_agent_state())
         self.root.bind("<Control-Shift-e>", lambda _: self.toggle_agent_state())
 
     # ------------------------------------------------------------------
-    # System Tray Icon (Windows Notification Area)
+    # Ícone na bandeja do sistema (área de notificação do Windows)
     # ------------------------------------------------------------------
 
     def _setup_system_tray(self) -> None:
-        """Initializes Windows System Tray icon if pystray and Pillow are available."""
+        """Cria o ícone na bandeja do Windows se pystray e Pillow estiverem instalados."""
         try:
             import pystray
             from PIL import Image, ImageDraw
@@ -699,7 +707,7 @@ class PromptSanitizerDesktopApp:
                 draw = ImageDraw.Draw(img)
                 fill_color = (16, 185, 129, 255) if active else (100, 116, 139, 255)
                 outline_color = (56, 189, 248, 255) if active else (148, 163, 184, 255)
-                # Shield polygon
+                # Polígono do escudo
                 points = [(32, 4), (58, 14), (54, 40), (32, 60), (10, 40), (6, 14)]
                 draw.polygon(points, fill=fill_color, outline=outline_color)
                 return img
@@ -745,15 +753,15 @@ class PromptSanitizerDesktopApp:
             )
             threading.Thread(target=self._tray_icon.run, name="SystemTrayThread", daemon=True).start()
         except Exception:
-            # pystray is optional; HUD works standalone if not installed
+            # pystray é opcional; sem ele o HUD funciona sozinho
             self._tray_icon = None
 
     # ------------------------------------------------------------------
-    # State & Event Handlers
+    # Estado e tratamento de eventos
     # ------------------------------------------------------------------
 
     def toggle_agent_state(self) -> None:
-        """Toggles real-time sanitization ON or OFF."""
+        """Liga ou desliga a sanitização em tempo real."""
         self.monitor.enabled = not self.monitor.enabled
         is_on = self.monitor.enabled
 
@@ -788,11 +796,11 @@ class PromptSanitizerDesktopApp:
                 pass
 
     def _toggle_autostart(self) -> None:
-        """Registers/unregisters the agent to start silently in the tray at Windows logon."""
+        """Registra ou remove o início silencioso do agente na bandeja no logon do Windows."""
         try:
             autostart.set_enabled(not autostart.is_enabled())
         except OSError as exc:
-            logger.error("Could not change start-with-Windows setting: %s", type(exc).__name__)
+            logger.error("Não foi possível alterar o início automático com o Windows: %s", type(exc).__name__)
         if self._tray_icon:
             try:
                 self._tray_icon.update_menu()
@@ -800,7 +808,7 @@ class PromptSanitizerDesktopApp:
                 pass
 
     def toggle_hud_visibility(self) -> None:
-        """Shows or hides the floating HUD window."""
+        """Mostra ou esconde o HUD flutuante."""
         if self._hud_visible:
             self.root.withdraw()
             self._hud_visible = False
@@ -810,7 +818,7 @@ class PromptSanitizerDesktopApp:
             self._hud_visible = True
 
     def open_rules_manager(self) -> None:
-        """Opens the CRUD Rules Manager window."""
+        """Abre a janela de gerenciamento das regras (CRUD)."""
         if self._rules_window and self._rules_window.winfo_exists():
             self._rules_window.lift()
             self._rules_window.focus_force()
@@ -826,7 +834,7 @@ class PromptSanitizerDesktopApp:
         self.rules_count_label.configure(text=f"Regras CRUD: {count}")
 
     def _trigger_sanitize_active_chat(self) -> None:
-        """Runs active chat box capture & replacement in a short worker thread to avoid blocking UI."""
+        """Captura e substitui o texto do chat ativo numa thread curta, para não travar a interface."""
         threading.Thread(
             target=self.monitor.sanitize_active_chat_now,
             name="ActiveChatSanitizeWorker",
@@ -888,11 +896,11 @@ class PromptSanitizerDesktopApp:
                 task = self._ui_queue.get_nowait()
                 task()
             except Exception as exc:
-                logger.error("UI queue task error: %s", type(exc).__name__)
+                logger.error("Erro em tarefa da fila da interface: %s", type(exc).__name__)
         self.root.after(100, self._process_ui_queue)
 
     def run(self) -> None:
-        """Starts background monitors, global hotkeys, and enters the Tkinter mainloop."""
+        """Inicia os monitores em segundo plano, os atalhos globais e o loop principal do Tkinter."""
         self.monitor.start()
         self.hotkeys.start()
         self.root.protocol("WM_DELETE_WINDOW", self.shutdown)
@@ -900,7 +908,7 @@ class PromptSanitizerDesktopApp:
         self.root.mainloop()
 
     def shutdown(self) -> None:
-        """Gracefully stops background threads, unregisters hotkeys, and closes the app."""
+        """Para as threads, remove os atalhos globais e fecha o aplicativo de forma organizada."""
         self.monitor.stop()
         self.hotkeys.stop()
         if self._tray_icon:

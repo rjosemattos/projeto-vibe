@@ -1,4 +1,4 @@
-"""Tests for exporting and importing the confidential rules vault."""
+"""Testes de exportação e importação do cofre de regras confidenciais."""
 
 from pathlib import Path
 

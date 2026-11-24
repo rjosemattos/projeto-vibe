@@ -1,2 +1,2 @@
-"""Test package initialization."""
+"""Pacote de testes."""
 

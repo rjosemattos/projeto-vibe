@@ -1,4 +1,4 @@
-"""Tests for RiskAnalyzer risk assessment logic and transparent scoring."""
+"""Testes da lógica de avaliação de risco do RiskAnalyzer e da pontuação explicada."""
 
 from app.detection.base import Detection
 from app.models.response import SeverityLevel

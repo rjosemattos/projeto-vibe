@@ -1,4 +1,4 @@
-"""Sanitization Engine for entity-consistent, reversible-index redaction."""
+"""Motor de sanitização: troca os dados detectados por tags consistentes."""
 
 from collections import Counter
 from typing import Dict, List
@@ -6,9 +6,9 @@ from app.detection.base import Detection
 
 
 class SanitizationEngine:
-    """Transforms raw prompt text into sanitized text preserving contextual meaning and entity consistency."""
+    """Transforma o prompt original em texto sanitizado, mantendo o sentido e a consistência das entidades."""
 
-    # Standard placeholder prefixes according to specifications
+    # Prefixos padrão das tags de substituição
     TYPE_PREFIX_MAP: Dict[str, str] = {
         "CPF": "CPF_USUARIO",
         "CNPJ": "CNPJ_USUARIO",
@@ -27,25 +27,25 @@ class SanitizationEngine:
     }
 
     def sanitize(self, text: str, detections: List[Detection]) -> str:
-        """Sanitize text by replacing sensitive entities with consistent placeholders.
+        """Substitui as entidades sensíveis do texto por tags consistentes.
 
-        Rules:
-        1. If an entity type appears only once in the prompt, use [PREFIX] (e.g. [CPF_USUARIO]).
-        2. If an entity type appears more than once (either distinct entities or repeated occurrences),
-           use indexed placeholders [PREFIX_1], [PREFIX_2] consistently mapped by normalized_key.
-        3. Replacements are performed in reverse offset order to prevent character index drift.
+        Regras:
+        1. Se um tipo de entidade aparece uma única vez no prompt, usa [PREFIXO] (ex.: [CPF_USUARIO]).
+        2. Se o tipo aparece mais de uma vez (entidades diferentes ou repetidas), usa tags numeradas
+           [PREFIXO_1], [PREFIXO_2], sempre a mesma tag para o mesmo valor (pela normalized_key).
+        3. As substituições são feitas do fim para o começo do texto, para não deslocar as posições.
         """
         if not detections:
             return text
 
-        # Count total occurrences of each type
+        # Conta o total de ocorrências de cada tipo
         type_counts = Counter(d.type for d in detections)
 
-        # Build consistent mapping: normalized_key -> assigned placeholder
+        # Monta o mapeamento consistente: normalized_key -> tag atribuída
         type_entity_registry: Dict[str, Dict[str, str]] = {}
         type_entity_counter: Dict[str, int] = {}
 
-        # Detections in chronological appearance order
+        # Detecções na ordem em que aparecem no texto
         chrono_detections = sorted(detections, key=lambda d: d.start)
 
         entity_to_placeholder: Dict[str, str] = {}
@@ -56,10 +56,10 @@ class SanitizationEngine:
             norm_key = det.normalized_key
 
             if type_counts[ent_type] == 1:
-                # Singular occurrence in the whole prompt
+                # Ocorrência única em todo o prompt
                 placeholder = f"[{prefix}]"
             else:
-                # Multiple occurrences of this type exist in the prompt
+                # Este tipo aparece mais de uma vez no prompt
                 if ent_type not in type_entity_registry:
                     type_entity_registry[ent_type] = {}
                     type_entity_counter[ent_type] = 0
@@ -73,8 +73,8 @@ class SanitizationEngine:
 
             entity_to_placeholder[f"{det.start}_{det.end}"] = placeholder
 
-        # Perform replacements from right to left (reverse start order)
-        # to ensure previous character indices remain completely valid
+        # Substitui da direita para a esquerda (ordem inversa de início)
+        # para que as posições dos caracteres anteriores continuem válidas
         reverse_detections = sorted(detections, key=lambda d: d.start, reverse=True)
         sanitized_chars = list(text)
 

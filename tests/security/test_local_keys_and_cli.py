@@ -1,4 +1,4 @@
-"""Tests for per-install key generation, store recovery and the CLI sanitizer."""
+"""Testes da geração de chaves por instalação, da recuperação do cofre e do sanitizador de linha de comando."""
 
 import os
 import stat
@@ -17,7 +17,7 @@ def test_local_keys_are_random_per_install(tmp_path, monkeypatch):
     b = RuleCryptoService()
     assert a._aes_key != b._aes_key
 
-    # Persisted and stable across instances in the same dir
+    # Gravada e estável entre instâncias na mesma pasta
     monkeypatch.setenv("PROMPT_SANITIZER_DATA_DIR", str(tmp_path / "a"))
     assert RuleCryptoService()._aes_key == a._aes_key
     if sys.platform != "win32":

@@ -1,4 +1,4 @@
-"""Detector implementations registry."""
+"""Registro das implementações de detectores."""
 
 from app.detection.detectors.cpf import CPFDetector
 from app.detection.detectors.cnpj import CNPJDetector

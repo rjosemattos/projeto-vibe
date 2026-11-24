@@ -1,4 +1,4 @@
-"""Detector for Brazilian CNPJ (Cadastro Nacional da Pessoa Jurídica) with semantic validation."""
+"""Detector de CNPJ (Cadastro Nacional da Pessoa Jurídica) com validação matemática."""
 
 import re
 from typing import List
@@ -8,13 +8,13 @@ from app.models.response import SeverityLevel
 
 
 class CNPJDetector(BaseDetector):
-    """Detects CNPJs in standard formatted, unformatted, and spaced variations with Modulo 11 validation."""
+    """Detecta CNPJs formatados, sem formatação ou com espaços, validando pelo módulo 11."""
 
     name = "cnpj_detector"
     entity_type = "CNPJ"
 
-    # 1. Standard formatted: 12.345.678/0001-90 (with optional spaces around separators)
-    # 2. Raw unformatted 14 digits
+    # 1. Formatado: 12.345.678/0001-90 (com espaços opcionais ao redor dos separadores)
+    # 2. 14 dígitos sem formatação
     PATTERN = re.compile(
         r"(?:(?:c\s*[-.]?\s*n\s*[-.]?\s*p\s*[-.]?\s*j|cnpj)[:\s=]*)?"
         r"(?:\b|\b(?=\d))"

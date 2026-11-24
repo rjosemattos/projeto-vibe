@@ -1,4 +1,4 @@
-"""Tests for DetectionEngine orchestration and span overlap resolution."""
+"""Testes da coordenação do DetectionEngine e da resolução de trechos sobrepostos."""
 
 from app.detection.engine import DetectionEngine
 
@@ -17,7 +17,7 @@ def test_engine_multiple_distinct_entities():
     assert "API_KEY" in types
     assert len(detections) == 3
 
-    # Detections should be in ascending start offset order
+    # As detecções devem vir em ordem crescente de posição inicial
     for i in range(len(detections) - 1):
         assert detections[i].start < detections[i + 1].start
         assert detections[i].end <= detections[i + 1].start
@@ -25,11 +25,11 @@ def test_engine_multiple_distinct_entities():
 
 def test_engine_overlap_resolution():
     engine = DetectionEngine()
-    # A text where credentials detector might match "token=eyJ..." while JWT detector matches "eyJ..."
+    # Texto em que o detector de credenciais pode pegar "token=eyJ..." e o de JWT pega "eyJ..."
     text = 'token="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.dozGzT_WwtqP_ErQDhbP_Wtc8qEkWk7_8b5wB2uF01g"'
     detections = engine.analyze(text)
 
-    # Must resolve overlap to exactly one detection without broken bounds
+    # Precisa resolver a sobreposição em uma única detecção, sem limites quebrados
     assert len(detections) == 1
     det = detections[0]
     assert det.type in ("JWT", "SENHA", "CREDENTIAL")
@@ -37,7 +37,7 @@ def test_engine_overlap_resolution():
 
 def test_engine_no_false_overlap():
     engine = DetectionEngine()
-    # Card and phone on separate lines
+    # Cartão e telefone em linhas separadas
     text = "Cartão: 4532 1234 5678 9014\nTel: (11) 98765-4321"
     detections = engine.analyze(text)
 

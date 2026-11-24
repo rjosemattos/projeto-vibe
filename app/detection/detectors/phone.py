@@ -1,4 +1,4 @@
-"""Detector for Brazilian and International phone numbers."""
+"""Detector de telefones brasileiros e internacionais."""
 
 import re
 from typing import List
@@ -7,12 +7,12 @@ from app.models.response import SeverityLevel
 
 
 class PhoneDetector(BaseDetector):
-    """Detects Brazilian mobile and landline phones, plus E.164 international numbers."""
+    """Detecta celulares e telefones fixos brasileiros, além de números internacionais no formato E.164."""
 
     name = "phone_detector"
     entity_type = "TELEFONE"
 
-    # Valid Brazilian Area Codes (DDDs)
+    # DDDs brasileiros válidos
     VALID_DDDS = {
         11, 12, 13, 14, 15, 16, 17, 18, 19,
         21, 22, 24, 27, 28,
@@ -25,11 +25,11 @@ class PhoneDetector(BaseDetector):
         91, 92, 93, 94, 95, 96, 97, 98, 99,
     }
 
-    # Matches BR phones:
-    # Optional country code: (+55 or 55)
-    # Area code: (11) or 11
-    # Mobile: 9XXXX-XXXX or 9XXXXXXXX
-    # Landline: [2-5]XXX-XXXX or [2-5]XXXXXXX
+    # Telefones brasileiros:
+    # Código do país opcional: (+55 ou 55)
+    # DDD: (11) ou 11
+    # Celular: 9XXXX-XXXX ou 9XXXXXXXX
+    # Fixo: [2-5]XXX-XXXX ou [2-5]XXXXXXX
     BR_PATTERN = re.compile(
         r"(?:(?<!\+)(?<!\d))"
         r"(?:(?:\+?55\s*)?(?:\(?([1-9]{2})\)?\s*))?"
@@ -40,7 +40,7 @@ class PhoneDetector(BaseDetector):
         re.IGNORECASE,
     )
 
-    # Simplified international format: +[1-9]\d{1,2}\s*[\(]?\d{1,4}[\)]?[ -]?\d{3,4}[ -]?\d{3,4}
+    # Formato internacional simplificado: +[1-9]\d{1,2}\s*[\(]?\d{1,4}[\)]?[ -]?\d{3,4}[ -]?\d{3,4}
     INTL_PATTERN = re.compile(
         r"(?:\b|(?<=[^\w\d]))"
         r"(\+[1-9]\d{0,2}[ -]?\(?\d{1,4}\)?[ -]?\d{3,4}[ -]?\d{3,4})"
@@ -51,16 +51,16 @@ class PhoneDetector(BaseDetector):
         detections: List[Detection] = []
         spans_seen = set()
 
-        # 1. Brazilian phone detection with DDD semantic check
+        # 1. Telefones brasileiros, com verificação do DDD
         for match in self.BR_PATTERN.finditer(text):
             full_match = match.group(0)
             start, end = match.span()
 
-            # Discard date-like strings (e.g. 2026-09-18)
+            # Descarta textos que parecem datas (ex.: 2026-09-18)
             if re.search(r"\d{4}[-/]\d{2}[-/]\d{2}", full_match):
                 continue
 
-            # Extract DDD from group 1 or 2
+            # Extrai o DDD do grupo 1 ou 2
             ddd_str = match.group(1) or match.group(2)
             if not ddd_str:
                 continue
@@ -74,11 +74,11 @@ class PhoneDetector(BaseDetector):
                 continue
 
             raw_digits = re.sub(r"\D", "", full_match)
-            # BR phone with DDD is 10 or 11 digits (or 12-13 with +55)
+            # Telefone brasileiro com DDD tem 10 ou 11 dígitos (12 ou 13 com +55)
             if len(raw_digits) < 10 or len(raw_digits) > 13:
                 continue
 
-            # Masking
+            # Máscara
             clean_digits = raw_digits[-11:] if len(raw_digits) >= 11 else raw_digits[-10:]
             masked = f"({clean_digits[:2]}) *****-{clean_digits[-4:]}"
 
@@ -97,7 +97,7 @@ class PhoneDetector(BaseDetector):
             )
             spans_seen.add((start, end))
 
-        # 2. International phone detection
+        # 2. Telefones internacionais
         for match in self.INTL_PATTERN.finditer(text):
             start, end = match.span(1)
             if any(s <= start and end <= e for s, e in spans_seen):

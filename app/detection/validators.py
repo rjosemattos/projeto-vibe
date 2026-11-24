@@ -1,43 +1,43 @@
-"""Mathematical and semantic validation algorithms for identity and financial data."""
+"""Algoritmos de validação matemática de documentos e dados financeiros."""
 
 import re
 
 
 def validate_cpf(raw_value: str) -> bool:
-    """Validate a Brazilian CPF number using modulo 11 check-digit verification.
+    """Valida um CPF pelo cálculo dos dígitos verificadores (módulo 11).
 
-    Rejects:
-    - Length != 11 digits
-    - Sequences of identical digits (e.g., 000.000.000-00, 111.111.111-11)
-    - Mathematically invalid check digits
+    Rejeita:
+    - Tamanho diferente de 11 dígitos
+    - Sequências de dígitos iguais (ex.: 000.000.000-00, 111.111.111-11)
+    - Dígitos verificadores matematicamente inválidos
     """
     digits = re.sub(r"\D", "", raw_value)
     if len(digits) != 11:
         return False
 
-    # Check for repeated digits
+    # Rejeita dígitos todos iguais
     if digits == digits[0] * 11:
         return False
 
-    # Validate first check digit
+    # Valida o primeiro dígito verificador
     s1 = sum(int(d) * (10 - i) for i, d in enumerate(digits[:9]))
     d1 = (s1 * 10 % 11) % 10
     if d1 != int(digits[9]):
         return False
 
-    # Validate second check digit
+    # Valida o segundo dígito verificador
     s2 = sum(int(d) * (11 - i) for i, d in enumerate(digits[:10]))
     d2 = (s2 * 10 % 11) % 10
     return d2 == int(digits[10])
 
 
 def validate_cnpj(raw_value: str) -> bool:
-    """Validate a Brazilian CNPJ number using modulo 11 check-digit verification.
+    """Valida um CNPJ pelo cálculo dos dígitos verificadores (módulo 11).
 
-    Rejects:
-    - Length != 14 digits
-    - Sequences of identical digits
-    - Mathematically invalid check digits
+    Rejeita:
+    - Tamanho diferente de 14 dígitos
+    - Sequências de dígitos iguais
+    - Dígitos verificadores matematicamente inválidos
     """
     digits = re.sub(r"\D", "", raw_value)
     if len(digits) != 14:
@@ -61,11 +61,11 @@ def validate_cnpj(raw_value: str) -> bool:
 
 
 def validate_luhn(raw_value: str) -> bool:
-    """Validate a credit/debit card number using the Luhn checksum algorithm (Mod 10).
+    """Valida um número de cartão de crédito/débito pelo algoritmo de Luhn (módulo 10).
 
-    Rejects:
-    - Non-numeric or lengths outside 13-19 digits
-    - Sequences that fail the checksum
+    Rejeita:
+    - Valores não numéricos ou com tamanho fora de 13 a 19 dígitos
+    - Sequências que não passam na soma de verificação
     """
     digits_str = re.sub(r"\D", "", raw_value)
     if not (13 <= len(digits_str) <= 19):
@@ -73,7 +73,7 @@ def validate_luhn(raw_value: str) -> bool:
 
     digits = [int(c) for c in digits_str]
     total = 0
-    # Process digits from right to left
+    # Percorre os dígitos da direita para a esquerda
     for i, d in enumerate(reversed(digits)):
         if i % 2 == 1:
             doubled = d * 2

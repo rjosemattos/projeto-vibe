@@ -1,4 +1,4 @@
-"""Risk assessment subpackage."""
+"""Subpacote de avaliação de risco."""
 
 from app.risk.analyzer import RiskAnalyzer
 

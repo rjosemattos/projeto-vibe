@@ -1,4 +1,4 @@
-"""Detector for JSON Web Tokens (JWT)."""
+"""Detector de JSON Web Tokens (JWT)."""
 
 import hashlib
 import re
@@ -8,12 +8,12 @@ from app.models.response import SeverityLevel
 
 
 class JWTDetector(BaseDetector):
-    """Detects standard JWT tokens (header.payload.signature in base64url)."""
+    """Detecta tokens JWT no formato padrão (cabeçalho.payload.assinatura em base64url)."""
 
     name = "jwt_detector"
     entity_type = "JWT"
 
-    # Matches standard JWT tokens starting with eyJ (Base64 for {"...)
+    # Tokens JWT começam com eyJ (Base64 de {"...)
     PATTERN = re.compile(
         r"\beyJ[a-zA-Z0-9_-]{10,}\.eyJ[a-zA-Z0-9_-]{10,}\.[a-zA-Z0-9_-]{10,}\b"
     )
@@ -24,7 +24,7 @@ class JWTDetector(BaseDetector):
             raw_token = match.group(0)
             start, end = match.span()
 
-            # Hash the token deterministically for entity-consistent grouping without revealing it
+            # Hash determinístico do token: agrupa o mesmo token sem revelar o valor
             token_hash = hashlib.sha256(raw_token.encode("utf-8")).hexdigest()[:12]
             masked = f"eyJ...{raw_token[-6:]}"
 

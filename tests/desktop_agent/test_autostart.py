@@ -1,4 +1,4 @@
-"""Tests for the start-with-Windows registration helpers."""
+"""Testes do registro de início automático com o Windows."""
 
 import sys
 

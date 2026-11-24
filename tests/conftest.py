@@ -1,9 +1,9 @@
-"""Pytest fixtures and configuration."""
+"""Fixtures e configuração do pytest."""
 
 import os
 import tempfile
 
-# Isolate tests from the real user data directory (keys, rules store) BEFORE importing the app.
+# Isola os testes da pasta de dados real do usuário (chaves, cofre de regras) ANTES de importar a aplicação.
 os.environ.setdefault("PROMPT_SANITIZER_DATA_DIR", tempfile.mkdtemp(prefix="prompt-sanitizer-tests-"))
 
 import pytest
@@ -14,18 +14,18 @@ from app.sanitization.engine import SanitizationEngine
 
 @pytest.fixture
 def detection_engine():
-    """Provides a fresh DetectionEngine instance."""
+    """Fornece uma instância nova do DetectionEngine."""
     return DetectionEngine()
 
 
 @pytest.fixture
 def risk_analyzer():
-    """Provides a fresh RiskAnalyzer instance."""
+    """Fornece uma instância nova do RiskAnalyzer."""
     return RiskAnalyzer()
 
 
 @pytest.fixture
 def sanitization_engine():
-    """Provides a fresh SanitizationEngine instance."""
+    """Fornece uma instância nova do SanitizationEngine."""
     return SanitizationEngine()
 

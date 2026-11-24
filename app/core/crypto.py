@@ -1,10 +1,12 @@
-"""Application Cryptography Service (AEAD with AES-256-GCM and Blind Indexing).
+"""Serviço de criptografia das regras confidenciais (AES-256-GCM + índice cego).
 
-Guarantees:
-1. Confidential terms are encrypted at rest with AES-256-GCM using unique random 96-bit nonces.
-2. Integrity and authenticity are strictly verified via GCM authentication tags.
-3. Blind indexing uses HMAC-SHA256 to allow duplicate term detection without decrypting.
-4. Masking utilities prevent raw sensitive terms from appearing in listings or the UI.
+Garantias:
+1. Os termos confidenciais são cifrados em repouso com AES-256-GCM, usando um nonce aleatório de 96 bits por cifragem.
+2. A integridade e a autenticidade são verificadas pela tag de autenticação do GCM.
+3. O índice cego (HMAC-SHA256) permite detectar termos duplicados sem decifrar nada.
+4. A máscara (ex.: 'C***R') impede que o termo original apareça em listagens ou na interface.
+
+Também contém as funções do backup do cofre, protegido por uma senha escolhida pelo usuário.
 """
 
 import base64
@@ -25,9 +27,10 @@ except ImportError:
 
 
 def _read_key_setting(name: str) -> str:
-    """Reads a key from the environment, falling back to a `.env` file in the working directory.
+    """Lê uma chave do ambiente e, se não houver, de um arquivo `.env` na pasta atual.
 
-    Mirrors the previous settings loader so keys configured in `.env` keep decrypting existing vaults.
+    Mantém o comportamento do antigo carregador de configurações: chaves definidas no `.env`
+    continuam decifrando os cofres já existentes.
     """
     value = os.getenv(name, "")
     if value:
@@ -44,7 +47,7 @@ def _read_key_setting(name: str) -> str:
 
 
 class RuleCryptoService:
-    """Manages authenticated encryption at rest and blind indexing for confidential terms."""
+    """Cifra os termos confidenciais em repouso e calcula o índice cego usado contra duplicidade."""
 
     def __init__(self, master_key: Optional[bytes] = None, hmac_key: Optional[bytes] = None):
         enc_key_str = _read_key_setting("PROMPT_SANITIZER_ENCRYPTION_KEY")
@@ -78,15 +81,16 @@ class RuleCryptoService:
         else:
             self._hmac_key = self._local_key("blind", legacy=b"prompt-sanitizer-dev-blind-index-key-change-in-prod")
 
+        # Instância reutilizada para cifrar e decifrar todos os termos com a mesma chave.
         self._aesgcm = AESGCM(self._aes_key)
 
     @staticmethod
     def _local_key(name: str, legacy: bytes) -> bytes:
-        """Returns a random per-installation key persisted in the user data dir (file mode 0600).
+        """Devolve a chave aleatória desta instalação, salva na pasta de dados (permissão 0600).
 
-        Previously a hardcoded, publicly known key was used. To keep existing encrypted stores
-        readable, the legacy key is still used when a rules store already exists but no local
-        key file has been generated yet.
+        Antigamente era usada uma chave fixa e pública. Para que cofres antigos continuem legíveis,
+        a chave legada ainda é usada quando já existe um cofre de regras, mas nenhum arquivo de
+        chave local foi gerado.
         """
         try:
             from app.core.paths import get_data_dir
@@ -108,13 +112,13 @@ class RuleCryptoService:
             os.replace(tmp_path, key_path)
             return key
         except Exception as exc:
-            logger.error("Could not persist local key (%s); using legacy dev key.", type(exc).__name__)
+            logger.error("Não foi possível salvar a chave local (%s); usando a chave legada de desenvolvimento.", type(exc).__name__)
             return hashlib.sha256(legacy).digest()
 
     def encrypt(self, plain_text: str) -> str:
-        """Encrypts a plain text term using AES-256-GCM with a unique 12-byte random nonce.
+        """Cifra um termo com AES-256-GCM, usando um nonce aleatório de 12 bytes.
 
-        Returns a Base64-encoded string: nonce (12 bytes) + ciphertext + tag (16 bytes).
+        Retorna uma string Base64 com: nonce (12 bytes) + texto cifrado + tag (16 bytes).
         """
         if not plain_text or not plain_text.strip():
             raise ValueError("O termo para cifragem não pode ser vazio.")
@@ -125,13 +129,13 @@ class RuleCryptoService:
         return base64.b64encode(nonce + ciphertext).decode("ascii")
 
     def decrypt(self, encrypted_payload: str) -> str:
-        """Decrypts payload, validating integrity and authenticity tag."""
+        """Decifra o conteúdo, validando a integridade e a tag de autenticação."""
         if not encrypted_payload:
             raise ValueError("Payload de cifragem vazio.")
 
         try:
             raw_bytes = base64.b64decode(encrypted_payload.encode("ascii"))
-            if len(raw_bytes) < 28:  # 12 bytes nonce + 16 bytes auth tag
+            if len(raw_bytes) < 28:  # 12 bytes de nonce + 16 bytes da tag de autenticação
                 raise ValueError("Payload criptográfico menor que o tamanho mínimo.")
 
             nonce = raw_bytes[:12]
@@ -142,13 +146,15 @@ class RuleCryptoService:
             raise ValueError("Falha ao decifrar termo: integridade inválida ou chave incorreta.") from exc
 
     def compute_blind_index(self, term: str) -> str:
-        """Generates deterministic HMAC-SHA256 for duplicate lookup without decryption."""
+        """Gera o HMAC-SHA256 determinístico do termo, usado para achar duplicados sem decifrar."""
+        # Normaliza o termo (sem espaços nas pontas e sem diferença de maiúsculas) para que
+        # 'CESAR' e 'cesar' gerem o mesmo índice e sejam tratados como o mesmo termo.
         normalized = term.strip().casefold().encode("utf-8")
         return hmac.new(self._hmac_key, normalized, hashlib.sha256).hexdigest()
 
     @staticmethod
     def mask_term(term: str) -> str:
-        """Masks a sensitive term for safe UI display (e.g., 'CESAR' -> 'C***R')."""
+        """Mascara um termo sensível para exibição segura (ex.: 'CESAR' -> 'C***R')."""
         clean = term.strip()
         length = len(clean)
         if length <= 2:
@@ -162,7 +168,7 @@ MIN_BACKUP_PASSWORD_LENGTH = 8
 
 
 def _password_key(password: str, salt: bytes) -> bytes:
-    """Derives a 256-bit key from the backup password with scrypt."""
+    """Deriva uma chave de 256 bits a partir da senha do backup, com scrypt."""
     return Scrypt(salt=salt, length=32, n=2**14, r=8, p=1).derive(password.encode("utf-8"))
 
 
@@ -171,7 +177,7 @@ def _b64(raw: bytes) -> str:
 
 
 def encrypt_backup(data: bytes, password: str) -> dict:
-    """Encrypts a rules backup with a key derived from the user's password."""
+    """Cifra o backup das regras com uma chave derivada da senha do usuário."""
     if len(password) < MIN_BACKUP_PASSWORD_LENGTH:
         raise ValueError(
             f"A senha do backup precisa ter pelo menos {MIN_BACKUP_PASSWORD_LENGTH} caracteres."
@@ -190,7 +196,7 @@ def encrypt_backup(data: bytes, password: str) -> dict:
 
 
 def decrypt_backup(payload: dict, password: str) -> bytes:
-    """Decrypts a rules backup; raises ValueError on a wrong password or a tampered file."""
+    """Decifra o backup das regras; lança ValueError se a senha estiver errada ou o arquivo tiver sido alterado."""
     if payload.get("format") != BACKUP_FORMAT or payload.get("version") != 1:
         raise ValueError("Arquivo de backup inválido.")
     try:

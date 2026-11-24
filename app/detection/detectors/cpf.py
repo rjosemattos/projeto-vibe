@@ -1,4 +1,4 @@
-"""Detector for Brazilian CPF (Cadastro de Pessoas Físicas) with semantic validation."""
+"""Detector de CPF (Cadastro de Pessoas Físicas) com validação matemática."""
 
 import re
 from typing import List
@@ -8,14 +8,14 @@ from app.models.response import SeverityLevel
 
 
 class CPFDetector(BaseDetector):
-    """Detects CPFs in various formats (standard, spaced, unlabeled, adversarial) with Modulo 11 validation."""
+    """Detecta CPFs em vários formatos (padrão, com espaços, sem rótulo, tentativas de burlar) validando pelo módulo 11."""
 
     name = "cpf_detector"
     entity_type = "CPF"
 
-    # 1. Standard formatted: 123.456.789-09 with optional spaces around delimiters: 123 . 456 . 789 - 09
-    # 2. Spaced digits: 123 456 789 09
-    # 3. Unformatted 11 digits: bounded by non-digits
+    # 1. Formatado: 123.456.789-09, com espaços opcionais nos separadores: 123 . 456 . 789 - 09
+    # 2. Dígitos separados por espaço: 123 456 789 09
+    # 3. 11 dígitos sem formatação, cercados por caracteres que não são dígitos
     PATTERN = re.compile(
         r"(?:(?:c\s*[-.]?\s*p\s*[-.]?\s*f|cpf)[:\s=]*)?"
         r"(?:\b|\b(?=\d))"
@@ -26,20 +26,20 @@ class CPFDetector(BaseDetector):
     def detect(self, text: str) -> List[Detection]:
         detections: List[Detection] = []
         for match in self.PATTERN.finditer(text):
-            # Target group 1 contains the candidate digits/separators
+            # O grupo 1 contém os dígitos e separadores candidatos
             candidate_raw = match.group(1)
             start, end = match.span(1)
 
-            # Strip non-digits and validate
+            # Remove o que não é dígito e valida
             digits = re.sub(r"\D", "", candidate_raw)
             if len(digits) != 11:
                 continue
 
             if not validate_cpf(digits):
-                # Mathematically invalid or fake/repeated sequence -> reject false positive!
+                # Inválido matematicamente ou sequência falsa/repetida -> descarta (falso positivo)
                 continue
 
-            # Check if preceded by "cpf" or explicit punctuation
+            # Verifica se vem precedido de "cpf" ou de pontuação explícita
             has_label = bool(re.search(r"c\s*[-.]?\s*p\s*[-.]?\s*f", text[max(0, start - 15):start], re.IGNORECASE))
             has_punctuation = "." in candidate_raw or "-" in candidate_raw
 

@@ -1,4 +1,4 @@
-"""Tests ensuring that no prompts or sensitive data leak through logs."""
+"""Testes que garantem que nenhum prompt ou dado sensível vaza pelos logs."""
 
 import logging
 from app.core.logging import PrivacyRedactingFilter, get_logger, setup_logging
@@ -7,7 +7,7 @@ from app.core.logging import PrivacyRedactingFilter, get_logger, setup_logging
 def test_privacy_redacting_filter():
     filter_obj = PrivacyRedactingFilter()
 
-    # Create a record with a simulated leak attempt
+    # Cria um registro de log com uma tentativa simulada de vazamento
     record = logging.LogRecord(
         name="test_logger",
         level=logging.INFO,

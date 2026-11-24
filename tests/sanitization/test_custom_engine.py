@@ -1,4 +1,4 @@
-"""Tests for CustomObfuscationEngine (Single-pass multi-pattern regex engine)."""
+"""Testes do CustomObfuscationEngine (motor de regex de passada única com vários termos)."""
 
 import pytest
 from app.sanitization.custom_engine import CustomObfuscationEngine, DecryptedRule
@@ -40,7 +40,7 @@ def test_custom_engine_case_sensitivity():
     text = "A Apple lançou um produto, mas eu comi uma apple no almoço."
     sanitized, matches = CustomObfuscationEngine.apply(text, rules)
 
-    # Only uppercase "Apple" is replaced
+    # Só "Apple" com maiúscula é substituído
     assert sanitized == "A [BRAND] lançou um produto, mas eu comi uma apple no almoço."
     assert len(matches) == 1
 
@@ -59,7 +59,7 @@ def test_custom_engine_whole_word_boundary_isolation():
     text = "O sol brilha no céu. A solidão é dura. O sistema solar é vasto."
     sanitized, matches = CustomObfuscationEngine.apply(text, rules)
 
-    # "solidão" and "solar" MUST NOT be replaced!
+    # "solidão" e "solar" NÃO podem ser substituídos!
     assert "solidão" in sanitized
     assert "solar" in sanitized
     assert "[ESTRELA]" in sanitized
@@ -108,7 +108,7 @@ def test_custom_engine_longer_terms_precedence_no_collisions():
 
     assert "[INSTITUICAO_FINANCEIRA]" in sanitized
     assert "[ENTIDADE]" in sanitized
-    # "Banco do Brasil" should not become "[ENTIDADE] do Brasil"
+    # "Banco do Brasil" não deve virar "[ENTIDADE] do Brasil"
     assert sanitized == "Fui à agência do [INSTITUICAO_FINANCEIRA] e depois sentei no [ENTIDADE] da praça."
 
 
@@ -139,8 +139,8 @@ def test_custom_engine_special_characters_and_symbols():
 
 
 def test_custom_engine_no_cascade_replacement():
-    # If rule 1 replaces "Alpha" with "Beta", and rule 2 replaces "Beta" with "Gamma",
-    # "Alpha" must NOT end up as "Gamma"!
+    # Se a regra 1 troca "Alpha" por "Beta" e a regra 2 troca "Beta" por "Gamma",
+    # "Alpha" NÃO pode acabar como "Gamma"!
     rules = [
         DecryptedRule(
             id="1",
@@ -161,5 +161,5 @@ def test_custom_engine_no_cascade_replacement():
     text = "Projeto Alpha e Projeto Beta."
     sanitized, matches = CustomObfuscationEngine.apply(text, rules)
 
-    # In single-pass regex, "Alpha" becomes "Beta" and stays "Beta"; existing "Beta" becomes "Gamma"
+    # Na regex de passada única, "Alpha" vira "Beta" e continua "Beta"; o "Beta" que já existia vira "Gamma"
     assert sanitized == "Projeto Beta e Projeto Gamma."

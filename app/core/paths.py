@@ -1,4 +1,4 @@
-"""Platform-specific application data directory resolution."""
+"""Resolve a pasta de dados da aplicação conforme o sistema operacional."""
 
 import os
 import sys
@@ -7,9 +7,9 @@ from pathlib import Path
 
 
 def get_data_dir() -> Path:
-    """Returns (and creates) the per-user data directory, with a portable `.data` or temp-dir fallback.
+    """Retorna (e cria) a pasta de dados do usuário, com alternativas em `.data` ou na pasta temporária.
 
-    The `PROMPT_SANITIZER_DATA_DIR` environment variable overrides the default location.
+    A variável de ambiente `PROMPT_SANITIZER_DATA_DIR` substitui o local padrão.
     """
     override = os.getenv("PROMPT_SANITIZER_DATA_DIR")
     if override:

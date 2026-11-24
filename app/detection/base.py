@@ -1,4 +1,4 @@
-"""Base interfaces and data structures for the detection engine."""
+"""Interfaces base e estruturas de dados do motor de detecção."""
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
@@ -8,7 +8,7 @@ from app.models.response import SeverityLevel
 
 @dataclass
 class Detection:
-    """Represents an identified sensitive entity in the input text."""
+    """Representa uma entidade sensível encontrada no texto de entrada."""
 
     type: str
     start: int
@@ -22,22 +22,22 @@ class Detection:
 
 
 class BaseDetector(ABC):
-    """Abstract base class for all sensitive data detectors."""
+    """Classe base abstrata de todos os detectores de dados sensíveis."""
 
     @property
     @abstractmethod
     def name(self) -> str:
-        """Unique detector identifier."""
+        """Identificador único do detector."""
         pass
 
     @property
     @abstractmethod
     def entity_type(self) -> str:
-        """Entity type label (e.g. CPF, EMAIL, API_KEY)."""
+        """Tipo da entidade (ex.: CPF, EMAIL, API_KEY)."""
         pass
 
     @abstractmethod
     def detect(self, text: str) -> List[Detection]:
-        """Analyze text and return a list of identified detections."""
+        """Analisa o texto e retorna a lista de detecções encontradas."""
         pass
 
