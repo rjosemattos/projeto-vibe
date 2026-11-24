@@ -422,7 +422,9 @@ class RulesManagerWindow(tk.Toplevel):
         try:
             # Termos que já existem no cofre são pulados e contados como ignorados.
             imported, skipped = self.service.import_rules(Path(path), password)
-        except (ValueError, RulesStoreError) as exc:
+        # import_rules lança ValueError para arquivo ilegível ou senha errada. Quando o commit 3
+        # do guia criar a RulesStoreError (falha ao gravar o cofre), ela deve entrar aqui também.
+        except ValueError as exc:
             messagebox.showerror("Importar regras", str(exc), parent=self)
             return
         self._refresh_table()
