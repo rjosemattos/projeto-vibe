@@ -1,4 +1,4 @@
-"""Tests for Email detector."""
+"""Testes do detector de e-mail."""
 
 from app.detection.detectors.email import EmailDetector
 
@@ -29,7 +29,7 @@ def test_email_detector_multiple():
 
 def test_email_detector_rejects_invalid():
     detector = EmailDetector()
-    # Invalid email shapes
+    # Formatos de e-mail inválidos
     text = "Texto comum com @arroba solto, teste@invalido sem tld e teste..duplo@invalido.com"
     detections = detector.detect(text)
     assert len(detections) == 0

@@ -1,11 +1,11 @@
-"""Custom Confidential Term Obfuscation Engine.
+"""Motor de ofuscação dos termos confidenciais cadastrados pelo usuário.
 
-Designed for high-performance single-pass multi-pattern substitution:
-1. Compiles alternation Regex with length-descending precedence to prevent substring collisions.
-2. Escapes all terms with re.escape() to guarantee immunity against ReDoS attacks.
-3. Uses intelligent Unicode-aware lookarounds for whole-word boundaries.
-4. Performs a single substitution pass per category (case-sensitive and case-insensitive),
-   completely eliminating cascading substitution anomalies.
+Feito para substituir vários termos em uma única passada:
+1. Monta uma regex de alternativas ordenada do termo mais longo para o mais curto, evitando colisões entre trechos.
+2. Escapa todos os termos com re.escape(), o que elimina o risco de ataques de ReDoS.
+3. Usa limites de palavra que entendem Unicode (acentos) para a opção "palavra inteira".
+4. Faz uma única substituição por grupo (diferencia e não diferencia maiúsculas),
+   o que impede substituições em cascata (um termo sendo trocado dentro da tag de outro).
 """
 
 import re
@@ -14,7 +14,7 @@ from typing import Dict, List, NamedTuple, Tuple
 
 
 class DecryptedRule(NamedTuple):
-    """Ephemeral in-memory decrypted rule structure."""
+    """Regra decifrada que existe apenas em memória, durante uma sanitização."""
 
     id: str
     term: str
@@ -25,7 +25,7 @@ class DecryptedRule(NamedTuple):
 
 @dataclass
 class CustomMatch:
-    """Record of a matched and replaced confidential term."""
+    """Registro de um termo confidencial encontrado e substituído."""
 
     rule_id: str
     raw_term: str
@@ -35,26 +35,26 @@ class CustomMatch:
 
 
 class CustomObfuscationEngine:
-    """High-efficiency single-pass regex engine for custom confidential term redaction."""
+    """Motor de regex de passada única que oculta os termos confidenciais do usuário."""
 
     @staticmethod
     def _make_pattern(term: str, whole_word: bool) -> str:
-        """Build regex chunk with safe escaping and smart boundary lookarounds."""
+        """Monta o trecho da regex de um termo, com escape seguro e limites de palavra."""
         escaped = re.escape(term)
         if not whole_word:
             return escaped
 
-        # Smart lookaround boundaries aware of non-alphanumeric leading/trailing symbols
+        # Limites de palavra que consideram símbolos no começo ou no fim do termo
         prefix = r"(?<!\w)" if re.match(r"^\w", term) else ""
         suffix = r"(?!\w)" if re.search(r"\w$", term) else ""
         return f"{prefix}{escaped}{suffix}"
 
     @classmethod
     def apply(cls, text: str, rules: List[DecryptedRule]) -> Tuple[str, List[CustomMatch]]:
-        """Applies custom rules to the text in a deterministic, cascade-free manner.
+        """Aplica as regras ao texto de forma determinística e sem substituições em cascata.
 
-        Returns:
-            Tuple[str, List[CustomMatch]]: The sanitized text and details of all matches.
+        Retorna:
+            Tuple[str, List[CustomMatch]]: o texto sanitizado e os detalhes de cada termo encontrado.
         """
         if not text or not rules:
             return text, []
@@ -65,12 +65,12 @@ class CustomObfuscationEngine:
         current_text = text
         all_matches: List[CustomMatch] = []
 
-        # 1. Process Case-Sensitive rules first
+        # 1. Primeiro as regras que diferenciam maiúsculas
         if cs_rules:
             current_text, cs_matches = cls._apply_group(current_text, cs_rules, flags=0)
             all_matches.extend(cs_matches)
 
-        # 2. Process Case-Insensitive rules
+        # 2. Depois as que não diferenciam
         if ci_rules:
             current_text, ci_matches = cls._apply_group(
                 current_text, ci_rules, flags=re.IGNORECASE
@@ -83,8 +83,8 @@ class CustomObfuscationEngine:
     def _apply_group(
         cls, text: str, rules: List[DecryptedRule], flags: int
     ) -> Tuple[str, List[CustomMatch]]:
-        """Compiles and executes single-pass substitution for a group of rules."""
-        # Sort by length descending to prioritize longer and more specific terms
+        """Compila e executa a substituição de passada única para um grupo de regras."""
+        # Ordena do maior para o menor, priorizando termos mais longos e específicos
         sorted_rules = sorted(rules, key=lambda r: len(r.term), reverse=True)
 
         group_map: Dict[str, DecryptedRule] = {}

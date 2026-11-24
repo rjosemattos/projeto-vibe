@@ -1,4 +1,4 @@
-"""Detector for Email addresses with ReDoS-safe patterns."""
+"""Detector de endereços de e-mail com padrões seguros contra ReDoS."""
 
 import re
 from typing import List
@@ -7,12 +7,12 @@ from app.models.response import SeverityLevel
 
 
 class EmailDetector(BaseDetector):
-    """Detects email addresses using a ReDoS-safe bounded regular expression."""
+    """Detecta endereços de e-mail com uma expressão regular limitada, segura contra ReDoS."""
 
     name = "email_detector"
     entity_type = "EMAIL"
 
-    # ReDoS-safe email regex: atomic-like bounded character sets without nested repetition
+    # Regex de e-mail segura contra ReDoS: conjuntos de caracteres limitados, sem repetições aninhadas
     PATTERN = re.compile(
         r"\b[a-zA-Z0-9._%+-]{1,64}@[a-zA-Z0-9.-]{1,255}\.[a-zA-Z]{2,24}\b",
         re.IGNORECASE,
@@ -24,7 +24,7 @@ class EmailDetector(BaseDetector):
             candidate = match.group(0)
             start, end = match.span()
 
-            # Sanity checks
+            # Verificações de sanidade
             if ".." in candidate or candidate.startswith(".") or candidate.endswith("."):
                 continue
 
@@ -36,7 +36,7 @@ class EmailDetector(BaseDetector):
             if not domain_part or "." not in domain_part:
                 continue
 
-            # Safe masking: e.g. jo***@domain.com
+            # Máscara segura: ex. jo***@dominio.com
             if len(user_part) <= 2:
                 masked_user = user_part[0] + "***" if user_part else "***"
             else:

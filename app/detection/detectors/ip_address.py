@@ -1,4 +1,4 @@
-"""Detector for IPv4 addresses (private network topology and public hosts)."""
+"""Detector de endereços IPv4 (topologia de rede privada e hosts públicos)."""
 
 import hashlib
 import ipaddress
@@ -9,7 +9,7 @@ from app.models.response import SeverityLevel
 
 
 class IPAddressDetector(BaseDetector):
-    """Detects valid IPv4 addresses, ignoring version-like strings and trivial loopback/unspecified IPs."""
+    """Detecta endereços IPv4 válidos, ignorando números de versão e IPs triviais (loopback, 0.0.0.0)."""
 
     name = "ip_address_detector"
     entity_type = "IP_ADDRESS"
@@ -27,7 +27,7 @@ class IPAddressDetector(BaseDetector):
             except ValueError:
                 continue
 
-            # Loopback / unspecified / broadcast carry no infrastructure information
+            # Loopback, endereço não especificado e broadcast não revelam nada da infraestrutura
             if ip.is_loopback or ip.is_unspecified or raw_ip == "255.255.255.255":
                 continue
 

@@ -1,4 +1,4 @@
-"""Detector for known API Keys and provider tokens (OpenAI, AWS, GitHub, Google)."""
+"""Detector de chaves de API e tokens de provedores conhecidos (OpenAI, AWS, GitHub, Google)."""
 
 import hashlib
 import re
@@ -8,16 +8,16 @@ from app.models.response import SeverityLevel
 
 
 class APIKeyDetector(BaseDetector):
-    """Detects provider-specific API keys and secrets using structured signatures."""
+    """Detecta chaves de API e segredos de provedores pelo formato característico de cada um."""
 
     name = "api_key_detector"
     entity_type = "API_KEY"
 
-    # Known structured patterns:
+    # Formatos conhecidos:
     # 1. OpenAI: sk-..., sk-proj-...
     # 2. AWS Access Key ID: AKIA...
-    # 3. GitHub Personal/OAuth Tokens: ghp_..., gho_..., github_pat_...
-    # 4. Google API Key: AIza...
+    # 3. Tokens pessoais/OAuth do GitHub: ghp_..., gho_..., github_pat_...
+    # 4. Chave de API do Google: AIza...
     PATTERNS = [
         ("OpenAI API Key", re.compile(r"\b(sk-(?:proj-)?[a-zA-Z0-9_-]{20,64})\b")),
         ("AWS Access Key ID", re.compile(r"\b(AKIA[0-9A-Z]{16})\b")),
@@ -39,7 +39,7 @@ class APIKeyDetector(BaseDetector):
 
                 token_hash = hashlib.sha256(raw_key.encode("utf-8")).hexdigest()[:12]
 
-                # Mask safely: e.g. sk-12************
+                # Mascara de forma segura: ex. sk-12************
                 if len(raw_key) > 8:
                     masked = f"{raw_key[:4]}************{raw_key[-2:]}"
                 else:

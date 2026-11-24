@@ -1,4 +1,4 @@
-"""Data models shared by the detection engine and the desktop agent."""
+"""Modelos de dados compartilhados pelo motor de detecção e pelo agente desktop."""
 
 from app.models.response import RiskReport, SeverityLevel
 from app.models.rules import (

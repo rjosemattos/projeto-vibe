@@ -1,4 +1,4 @@
-"""Tests for API keys, JWTs, Bearer tokens, passwords, and credential detectors."""
+"""Testes dos detectores de chaves de API, JWTs, tokens Bearer, senhas e credenciais."""
 
 from app.detection.detectors.api_key import APIKeyDetector
 from app.detection.detectors.credentials import CredentialsDetector

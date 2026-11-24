@@ -1,9 +1,10 @@
-"""Start-with-Windows registration for the background agent.
+"""Registro do início automático do agente junto com o Windows.
 
-The agent needs the interactive user's clipboard, foreground window and global hotkeys, so it
-cannot run as a classic Windows Service (services live in the isolated Session 0). Instead it is
-registered per user under ``HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run`` and starts
-silently in the system tray at every logon. No administrator rights are required.
+O agente precisa do clipboard, da janela em primeiro plano e dos atalhos globais do usuário
+logado, por isso não pode rodar como um Windows Service clássico (serviços ficam isolados na
+Sessão 0). Em vez disso, ele é registrado por usuário em
+``HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run`` e inicia silenciosamente na
+bandeja a cada logon. Não precisa de permissão de administrador.
 """
 
 import subprocess
@@ -24,14 +25,14 @@ _PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 
 
 def build_launch_command() -> str:
-    """Returns the command line that starts the agent silently in the tray."""
-    if getattr(sys, "frozen", False):  # PyInstaller executable
+    """Retorna a linha de comando que inicia o agente silenciosamente na bandeja."""
+    if getattr(sys, "frozen", False):  # Executável gerado pelo PyInstaller
         return subprocess.list2cmdline([sys.executable, BACKGROUND_FLAG])
 
     interpreter = Path(sys.executable)
     pythonw = interpreter.with_name("pythonw.exe")
     if pythonw.exists():
-        interpreter = pythonw  # no console window
+        interpreter = pythonw  # sem janela de console
     script = _PROJECT_ROOT / "run_desktop_agent.py"
     return subprocess.list2cmdline([str(interpreter), str(script), BACKGROUND_FLAG])
 
@@ -44,7 +45,7 @@ def _open_run_key(write: bool):
 
 
 def get_registered_command() -> Optional[str]:
-    """Returns the registered start-up command, or None when not registered."""
+    """Retorna o comando de inicialização registrado, ou None se não houver registro."""
     if not IS_WINDOWS:
         return None
     import winreg
@@ -58,12 +59,12 @@ def get_registered_command() -> Optional[str]:
 
 
 def is_enabled() -> bool:
-    """True when the agent is registered to start with Windows."""
+    """True quando o agente está registrado para iniciar com o Windows."""
     return get_registered_command() is not None
 
 
 def enable() -> str:
-    """Registers the agent to start in the background at logon. Returns the registered command."""
+    """Registra o agente para iniciar em segundo plano no logon. Retorna o comando registrado."""
     if not IS_WINDOWS:
         raise OSError("O início automático só está disponível no Windows.")
     import winreg
@@ -71,12 +72,12 @@ def enable() -> str:
     command = build_launch_command()
     with _open_run_key(write=True) as key:
         winreg.SetValueEx(key, VALUE_NAME, 0, winreg.REG_SZ, command)
-    logger.info("Start-with-Windows enabled.")
+    logger.info("Início automático com o Windows ativado.")
     return command
 
 
 def disable() -> bool:
-    """Removes the start-up registration. Returns True if an entry was removed."""
+    """Remove o registro de inicialização. Retorna True se havia um registro."""
     if not IS_WINDOWS:
         return False
     import winreg
@@ -86,12 +87,12 @@ def disable() -> bool:
             winreg.DeleteValue(key, VALUE_NAME)
     except FileNotFoundError:
         return False
-    logger.info("Start-with-Windows disabled.")
+    logger.info("Início automático com o Windows desativado.")
     return True
 
 
 def set_enabled(enabled: bool) -> None:
-    """Enables or disables the start-up registration."""
+    """Liga ou desliga o início automático com o Windows."""
     if enabled:
         enable()
     else:

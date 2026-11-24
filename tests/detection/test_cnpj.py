@@ -1,4 +1,4 @@
-"""Tests for CNPJ detection and semantic Modulo 11 validation."""
+"""Testes da detecção de CNPJ e da validação pelo módulo 11."""
 
 from app.detection.detectors.cnpj import CNPJDetector
 from app.detection.validators import validate_cnpj
@@ -11,13 +11,13 @@ def test_cnpj_validator_valid():
 
 
 def test_cnpj_validator_invalid():
-    # Invalid check digits
+    # Dígitos verificadores inválidos
     assert validate_cnpj("00.000.000/0001-00") is False
     assert validate_cnpj("12345678000199") is False
-    # All identical digits
+    # Todos os dígitos iguais
     assert validate_cnpj("00000000000000") is False
     assert validate_cnpj("11.111.111/1111-11") is False
-    # Wrong length
+    # Tamanho errado
     assert validate_cnpj("123456780001") is False
 
 
@@ -55,7 +55,7 @@ def test_cnpj_detector_spaced():
 
 def test_cnpj_rejects_false_positives():
     detector = CNPJDetector()
-    # Random 14-digit number that fails Modulo 11
+    # Número aleatório de 14 dígitos que não passa no módulo 11
     text = "Código de rastreamento internacional: 98765432109876."
     detections = detector.detect(text)
     assert len(detections) == 0

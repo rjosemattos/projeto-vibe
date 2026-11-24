@@ -1,4 +1,4 @@
-"""Detection Engine: orchestrates detectors and resolves overlapping entity spans."""
+"""Motor de detecção: coordena os detectores e resolve trechos sobrepostos."""
 
 from typing import List, Optional
 from app.detection.base import BaseDetector, Detection
@@ -18,9 +18,9 @@ from app.models.response import SeverityLevel
 
 
 class DetectionEngine:
-    """Central engine that coordinates modular sensitive data detectors and handles conflicts."""
+    """Motor central que coordena os detectores de dados sensíveis e resolve conflitos entre eles."""
 
-    # Priority ranking for conflict resolution
+    # Ordem de prioridade para resolver conflitos
     SEVERITY_WEIGHTS = {
         SeverityLevel.CRITICAL: 4,
         SeverityLevel.HIGH: 3,
@@ -29,46 +29,46 @@ class DetectionEngine:
     }
 
     def __init__(self, detectors: Optional[List[BaseDetector]] = None) -> None:
-        """Initialize engine with either custom or default detectors."""
+        """Inicializa o motor com detectores personalizados ou com os detectores padrão."""
         if detectors is not None:
             self.detectors = detectors
         else:
             self.detectors = [
-                # Critical credentials first
+                # Credenciais críticas primeiro
                 PrivateKeyDetector(),
                 APIKeyDetector(),
                 JWTDetector(),
                 CredentialsDetector(),
-                # High severity identifiers and financial data
+                # Identificadores e dados financeiros de alta severidade
                 CPFDetector(),
                 CNPJDetector(),
                 CreditCardDetector(),
-                # Medium severity personal contact data
+                # Dados pessoais de contato, de severidade média
                 EmailDetector(),
                 PhoneDetector(),
                 IPAddressDetector(),
             ]
 
     def analyze(self, text: str) -> List[Detection]:
-        """Run all registered detectors and return non-overlapping, prioritized detections."""
+        """Roda todos os detectores e retorna as detecções priorizadas e sem sobreposição."""
         raw_detections: List[Detection] = []
         for detector in self.detectors:
             try:
                 results = detector.detect(text)
                 raw_detections.extend(results)
             except Exception:
-                # Individual detector failure must not crash entire pipeline; safe privacy isolation
+                # A falha de um detector não pode derrubar o pipeline inteiro
                 continue
 
-        # Resolve overlapping spans
+        # Resolve trechos sobrepostos
         return self._resolve_overlaps(raw_detections)
 
     def _resolve_overlaps(self, detections: List[Detection]) -> List[Detection]:
-        """Resolve overlapping text spans by prioritizing severity, confidence, and span length."""
+        """Resolve trechos sobrepostos priorizando severidade, confiança e tamanho do trecho."""
         if not detections:
             return []
 
-        # Sort priority: Severity -> Confidence -> Length -> Start offset
+        # Ordem de prioridade: severidade -> confiança -> tamanho -> posição inicial
         sorted_candidates = sorted(
             detections,
             key=lambda d: (
@@ -83,10 +83,10 @@ class DetectionEngine:
         accepted: List[Detection] = []
 
         for candidate in sorted_candidates:
-            # Check overlap with already accepted detections
+            # Verifica sobreposição com as detecções já aceitas
             has_overlap = False
             for acc in accepted:
-                # Two spans overlap if max(start1, start2) < min(end1, end2)
+                # Dois trechos se sobrepõem se max(inicio1, inicio2) < min(fim1, fim2)
                 if max(candidate.start, acc.start) < min(candidate.end, acc.end):
                     has_overlap = True
                     break
@@ -94,7 +94,7 @@ class DetectionEngine:
             if not has_overlap:
                 accepted.append(candidate)
 
-        # Return final accepted detections sorted chronologically by start index
+        # Retorna as detecções aceitas em ordem de aparição no texto
         accepted.sort(key=lambda d: d.start)
         return accepted
 

@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""Entry point for the Prompt Sanitizer background agent for Windows and command-line sanitizer.
+"""Ponto de entrada do agente do Prompt Sanitizer para Windows e do sanitizador de linha de comando.
 
-Usage:
-    python run_desktop_agent.py                       (HUD + tray)
-    pythonw run_desktop_agent.py --background         (tray only, no console; used at logon)
-    python run_desktop_agent.py --enable-autostart    (start silently with Windows)
+Uso:
+    python run_desktop_agent.py                       (HUD + bandeja)
+    pythonw run_desktop_agent.py --background         (só a bandeja, sem console; usado no logon)
+    python run_desktop_agent.py --enable-autostart    (iniciar silenciosamente com o Windows)
     python run_desktop_agent.py --disable-autostart
     python run_desktop_agent.py --self-test
     python run_desktop_agent.py --sanitize "CPF 123.456.789-09"
@@ -23,7 +23,7 @@ SINGLE_INSTANCE_PORT = 47653
 
 
 def _configure_stdio() -> None:
-    """Avoids UnicodeEncodeError on legacy Windows consoles (cp1252)."""
+    """Evita UnicodeEncodeError em consoles antigos do Windows (cp1252)."""
     for stream in (sys.stdout, sys.stderr, sys.stdin):
         reconfigure = getattr(stream, "reconfigure", None)
         if reconfigure:
@@ -34,7 +34,7 @@ def _configure_stdio() -> None:
 
 
 def run_self_test() -> int:
-    """Runs an automated verification of the desktop agent pipeline and CRUD encryption."""
+    """Roda uma verificação automática do pipeline do agente e da criptografia das regras."""
     import tempfile
     from pathlib import Path
 
@@ -67,7 +67,7 @@ def run_self_test() -> int:
 
 
 def run_cli_sanitize(text_arg: str, as_json: bool) -> int:
-    """Sanitizes text from an argument (or stdin when '-') and prints the result to stdout."""
+    """Sanitiza o texto do argumento (ou da entrada padrão, com '-') e imprime o resultado."""
     text = sys.stdin.read() if text_arg == "-" else text_arg
     service = DesktopSanitizerService()
     result = service.sanitize_prompt(text)
@@ -93,12 +93,12 @@ def run_cli_sanitize(text_arg: str, as_json: bool) -> int:
         if not result.sanitized_text.endswith("\n"):
             sys.stdout.write("\n")
         print(f"# {result.summary_badge}", file=sys.stderr)
-    # Exit code 10 signals "sensitive data was found" for scripting / pre-commit usage
+    # Código de saída 10 indica "dados sensíveis encontrados", útil em scripts e hooks de pre-commit
     return 10 if result.changed else 0
 
 
 def run_autostart(enable: bool) -> int:
-    """Registers or removes the start-with-Windows entry for the background agent."""
+    """Registra ou remove o início automático do agente com o Windows."""
     from app.desktop_agent import autostart
 
     if not autostart.IS_WINDOWS:
@@ -119,7 +119,7 @@ def run_autostart(enable: bool) -> int:
 
 
 def _acquire_single_instance_lock():
-    """Binds a localhost socket to guarantee only one agent runs at a time."""
+    """Ocupa uma porta local para garantir que só um agente rode por vez."""
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     try:
         sock.bind(("127.0.0.1", SINGLE_INSTANCE_PORT))
@@ -131,7 +131,7 @@ def _acquire_single_instance_lock():
 
 
 def _enable_windows_dpi_awareness() -> None:
-    """Prevents blurry/mis-sized UI on high-DPI Windows displays."""
+    """Evita interface borrada ou com tamanho errado em telas de alta resolução no Windows."""
     if sys.platform != "win32":
         return
     try:
@@ -146,7 +146,7 @@ def _enable_windows_dpi_awareness() -> None:
 
 
 def _fatal(message: str) -> int:
-    """Reports a fatal startup error to the console and, on GUI launches, via a message box."""
+    """Mostra um erro fatal de inicialização no console e, quando há interface, numa caixa de mensagem."""
     print(f"[ERRO] {message}", file=sys.stderr)
     try:
         import tkinter as tk
@@ -215,6 +215,7 @@ def main() -> int:
             "No Linux: sudo apt install python3-tk"
         )
 
+    # Garante uma única instância: uma segunda execução encontra a porta ocupada e encerra.
     lock = _acquire_single_instance_lock()
     if lock is None:
         return _fatal("O Prompt Sanitizer já está em execução (verifique o ícone na bandeja do sistema).")
@@ -223,6 +224,7 @@ def main() -> int:
 
     from app.desktop_agent.ui_hud import PromptSanitizerDesktopApp
 
+    # Com --background o HUD começa oculto e o agente fica só na bandeja (modo usado no logon).
     app = PromptSanitizerDesktopApp(start_hidden=args.background)
     try:
         app.run()

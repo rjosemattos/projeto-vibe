@@ -1,9 +1,9 @@
-"""Privacy-preserving logging system.
+"""Sistema de logs que preserva a privacidade.
 
-Guarantees by design:
-1. Prompts and sensitive detection values are NEVER written to logs.
-2. Formatter redacts any potential credential or sensitive pattern if inadvertently passed.
-3. No stack traces containing user prompt variables are emitted.
+Garantias:
+1. Prompts e valores sensíveis detectados NUNCA são gravados nos logs.
+2. O filtro apaga qualquer padrão de credencial ou dado sensível que chegue ao log por engano.
+3. Nenhum stack trace com variáveis do prompt do usuário é emitido.
 """
 
 import logging
@@ -13,19 +13,19 @@ from typing import Optional
 
 
 class PrivacyRedactingFilter(logging.Filter):
-    """Filter that suppresses or redacts any sensitive keywords from log records."""
+    """Filtro que apaga dados sensíveis das mensagens de log antes de serem gravadas."""
 
     SENSITIVE_PATTERNS = [
         re.compile(r"sk-[A-Za-z0-9-_]{10,}", re.IGNORECASE),
         re.compile(r"Bearer\s+[A-Za-z0-9._\-~+/=]{10,}", re.IGNORECASE),
         re.compile(r"AKIA[0-9A-Z]{16}", re.IGNORECASE),
-        re.compile(r"\b\d{3}\.?\d{3}\.?\d{3}-?\d{2}\b"),  # CPF-like
-        re.compile(r"\b\d{2}\.?\d{3}\.?\d{3}/?\d{4}-?\d{2}\b"),  # CNPJ-like
-        re.compile(r"\b\d{4}[ -]?\d{4}[ -]?\d{4}[ -]?\d{4}\b"),  # Card-like
+        re.compile(r"\b\d{3}\.?\d{3}\.?\d{3}-?\d{2}\b"),  # Parecido com CPF
+        re.compile(r"\b\d{2}\.?\d{3}\.?\d{3}/?\d{4}-?\d{2}\b"),  # Parecido com CNPJ
+        re.compile(r"\b\d{4}[ -]?\d{4}[ -]?\d{4}[ -]?\d{4}\b"),  # Parecido com cartão
     ]
 
     def filter(self, record: logging.LogRecord) -> bool:
-        """Sanitize record message to prevent accidental PII/secret leaks."""
+        """Substitui padrões sensíveis na mensagem para evitar vazamento acidental de dados pessoais ou segredos."""
         if not isinstance(record.msg, str):
             return True
 
@@ -38,11 +38,11 @@ class PrivacyRedactingFilter(logging.Filter):
 
 
 def setup_logging(level: str = "INFO") -> logging.Logger:
-    """Configure and return the root application logger."""
+    """Configura e retorna o logger principal da aplicação."""
     root_logger = logging.getLogger("prompt_sanitizer")
     root_logger.setLevel(getattr(logging, level.upper(), logging.INFO))
 
-    # Avoid duplicate handlers if called multiple times
+    # Evita handlers duplicados se a função for chamada mais de uma vez
     if not root_logger.handlers:
         handler = logging.StreamHandler(sys.stdout)
         formatter = logging.Formatter(
@@ -53,13 +53,13 @@ def setup_logging(level: str = "INFO") -> logging.Logger:
         handler.addFilter(PrivacyRedactingFilter())
         root_logger.addHandler(handler)
 
-    # Disable propagation to default root to prevent unformatted/unfiltered dumps
+    # Não propaga para o logger raiz, que gravaria mensagens sem formatação e sem filtro
     root_logger.propagate = False
     return root_logger
 
 
 def get_logger(name: Optional[str] = None) -> logging.Logger:
-    """Get a logger instance with privacy filtering attached."""
+    """Retorna um logger com o filtro de privacidade aplicado."""
     base = logging.getLogger("prompt_sanitizer")
     if name:
         return base.getChild(name)

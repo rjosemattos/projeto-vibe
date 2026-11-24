@@ -1,4 +1,4 @@
-"""Tests for Phone detector."""
+"""Testes do detector de telefone."""
 
 from app.detection.detectors.phone import PhoneDetector
 

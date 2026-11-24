@@ -1,4 +1,4 @@
-"""Detector for Credit and Debit Card numbers with Luhn semantic validation."""
+"""Detector de números de cartão de crédito e débito, com validação pelo algoritmo de Luhn."""
 
 import re
 from typing import List
@@ -8,25 +8,25 @@ from app.models.response import SeverityLevel
 
 
 class CreditCardDetector(BaseDetector):
-    """Detects credit/debit card numbers in groups of digits or contiguous streams with Luhn check."""
+    """Detecta números de cartão em blocos de dígitos ou em sequência contínua, validando por Luhn."""
 
     name = "credit_card_detector"
     entity_type = "CARTAO_CREDITO"
 
-    # Matches card formats:
-    # 4x4: 1234 5678 9012 3456 or 1234-5678-9012-3456
+    # Formatos de cartão aceitos:
+    # 4x4: 1234 5678 9012 3456 ou 1234-5678-9012-3456
     # Amex: 4-6-5 (3412 345678 90123)
-    # Contiguous 13 to 19 digits
+    # De 13 a 19 dígitos seguidos
     PATTERN = re.compile(
         r"(?:\b|\b(?=\d))("
-        r"\d{4}[ -]\d{4}[ -]\d{4}[ -]\d{1,4}"  # 4-block format
-        r"|\d{4}[ -]\d{6}[ -]\d{5}"             # Amex 15-digit format
-        r"|\b\d{13,19}\b"                       # Raw continuous sequence
+        r"\d{4}[ -]\d{4}[ -]\d{4}[ -]\d{1,4}"  # Formato em 4 blocos
+        r"|\d{4}[ -]\d{6}[ -]\d{5}"             # Formato Amex de 15 dígitos
+        r"|\b\d{13,19}\b"                       # Sequência contínua
         r")(?:\b|(?<=\d)\b)",
         re.IGNORECASE,
     )
 
-    # Common BIN patterns (Visa, Mastercard, Amex, Discover, Elo, Diners, Hipercard)
+    # Prefixos BIN comuns (Visa, Mastercard, Amex, Discover, Elo, Diners, Hipercard)
     BIN_PREFIXES = (
         "4",       # Visa
         "51", "52", "53", "54", "55", # Mastercard
@@ -48,15 +48,15 @@ class CreditCardDetector(BaseDetector):
             if not (13 <= len(digits) <= 19):
                 continue
 
-            # Check if all digits are identical (e.g., 0000000000000000)
+            # Verifica se todos os dígitos são iguais (ex.: 0000000000000000)
             if digits == digits[0] * len(digits):
                 continue
 
-            # Must satisfy Luhn algorithm
+            # Precisa passar no algoritmo de Luhn
             if not validate_luhn(digits):
                 continue
 
-            # Confidence assessment: higher if known IIN/BIN prefix or separated by spaces/hyphens
+            # Confiança maior se tiver prefixo BIN conhecido ou separadores (espaço/hífen)
             has_separators = (" " in candidate_raw) or ("-" in candidate_raw)
             matches_known_bin = any(digits.startswith(prefix) for prefix in self.BIN_PREFIXES)
 

@@ -1,4 +1,4 @@
-"""Shared result models (severity levels and risk report)."""
+"""Modelos de resultado compartilhados (níveis de severidade e relatório de risco)."""
 
 from enum import Enum
 from typing import List
@@ -6,7 +6,7 @@ from pydantic import BaseModel, Field
 
 
 class SeverityLevel(str, Enum):
-    """Classification levels for sensitivity and privacy risk."""
+    """Níveis de classificação de sensibilidade e de risco à privacidade."""
 
     LOW = "LOW"
     MEDIUM = "MEDIUM"
@@ -15,22 +15,22 @@ class SeverityLevel(str, Enum):
 
 
 class RiskReport(BaseModel):
-    """Detailed risk assessment metrics and transparent reasoning."""
+    """Métricas detalhadas da avaliação de risco e os motivos que levaram a ela."""
 
     risk_level: SeverityLevel = Field(
         ...,
-        description="Overall prompt risk level.",
+        description="Nível de risco geral do prompt.",
         examples=[SeverityLevel.HIGH],
     )
     score: int = Field(
         ...,
         ge=0,
         le=100,
-        description="Calculated composite risk score from 0 (safe) to 100 (critical).",
+        description="Pontuação de risco calculada, de 0 (seguro) a 100 (crítico).",
         examples=[75],
     )
     reasons: List[str] = Field(
         default_factory=list,
-        description="Human-readable reasons and factors contributing to the risk score.",
+        description="Motivos legíveis que explicam a pontuação de risco.",
         examples=["Presença de identificador governamental (CPF)."],
     )

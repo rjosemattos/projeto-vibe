@@ -1,4 +1,4 @@
-"""Tests for the IPv4 and PEM private key detectors."""
+"""Testes dos detectores de IPv4 e de chave privada PEM."""
 
 from app.detection.detectors.ip_address import IPAddressDetector
 from app.detection.detectors.private_key import PrivateKeyDetector

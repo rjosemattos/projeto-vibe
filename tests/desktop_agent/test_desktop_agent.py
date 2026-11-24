@@ -1,4 +1,4 @@
-"""Unit and integration tests for the Windows Global Desktop Agent."""
+"""Testes unitários e de integração do agente desktop para Windows."""
 import json 
 
 from pathlib import Path
@@ -12,7 +12,7 @@ from app.models.response import SeverityLevel
 
 
 class FakeClipboard:
-    """In-memory clipboard simulator for deterministic testing."""
+    """Simulador de clipboard em memória, para testes determinísticos."""
 
     def __init__(self, initial: str = ""):
         self.content = initial
@@ -25,7 +25,7 @@ class FakeClipboard:
 
 
 def test_encrypted_disk_persistence_zero_plaintext(tmp_path: Path):
-    """Verifies that custom rules are persisted encrypted on disk with zero plaintext leakage."""
+    """Verifica que as regras são gravadas cifradas em disco, sem nenhum texto claro."""
     store_file = tmp_path / "rules.enc.json"
     service = DesktopSanitizerService(storage_path=store_file)
 
@@ -42,14 +42,14 @@ def test_encrypted_disk_persistence_zero_plaintext(tmp_path: Path):
     assert "Projeto Ultra Secreto" not in raw_disk_content
     assert "[PROJETO_CONFIDENCIAL]" in raw_disk_content
 
-    # Reload in a fresh service instance to verify persistence across restarts
+    # Recarrega numa nova instância do serviço para verificar que as regras sobrevivem a reinícios
     reloaded_service = DesktopSanitizerService(storage_path=store_file)
     rules = reloaded_service.list_rules()
     assert len(rules) == 1
     assert rules[0].id == created.id
     assert rules[0].replacement_tag == "[PROJETO_CONFIDENCIAL]"
 
-    # Verify duplicate rejection via blind index
+    # Verifica a recusa de duplicados pelo índice cego
     with pytest.raises(ValueError, match="já está cadastrado"):
         reloaded_service.create_rule(
             term="projeto ultra secreto",
@@ -58,7 +58,7 @@ def test_encrypted_disk_persistence_zero_plaintext(tmp_path: Path):
 
 
 def test_desktop_crud_update_and_delete(tmp_path: Path):
-    """Verifies updating and deleting rules in the DesktopSanitizerService."""
+    """Verifica a edição e a exclusão de regras no DesktopSanitizerService."""
     store_file = tmp_path / "rules.enc.json"
     service = DesktopSanitizerService(storage_path=store_file)
 
@@ -82,7 +82,7 @@ def test_desktop_crud_update_and_delete(tmp_path: Path):
 
 
 def test_clipboard_auto_sanitization_and_loop_prevention(tmp_path: Path):
-    """Verifies real-time clipboard monitoring sanitizes sensitive prompts once without looping."""
+    """Verifica que o monitor do clipboard sanitiza o prompt uma única vez, sem entrar em loop."""
     store_file = tmp_path / "rules.enc.json"
     service = DesktopSanitizerService(storage_path=store_file)
     service.create_rule("CESAR", "[COMPANY_SENSITIVE]")
@@ -100,7 +100,7 @@ def test_clipboard_auto_sanitization_and_loop_prevention(tmp_path: Path):
         on_sanitized_event=lambda r, src: events.append((r, src)),
     )
 
-    # User copies a prompt with custom confidential term + valid CPF + email
+    # O usuário copia um prompt com termo confidencial + CPF válido + e-mail
     fake_clip.set("Analise o projeto da CESAR do cliente CPF 123.456.789-09 e email dev@cesar.org.br")
 
     result = monitor.inspect_clipboard_once()
@@ -113,14 +113,14 @@ def test_clipboard_auto_sanitization_and_loop_prevention(tmp_path: Path):
     assert events[0][1] == "AUTO_CLIPBOARD"
     assert result.risk_level in (SeverityLevel.HIGH, SeverityLevel.CRITICAL)
 
-    # Subsequent poll on already sanitized clipboard must be a no-op
+    # Uma nova verificação do clipboard já sanitizado não deve fazer nada
     second_result = monitor.inspect_clipboard_once()
     assert second_result is None
     assert len(events) == 1
 
 
 def test_active_chat_hotkey_in_place_sanitization(tmp_path: Path):
-    """Verifies Ctrl+Shift+S active chat sanitization flow."""
+    """Verifica o fluxo de sanitização do chat ativo (Ctrl+Shift+S)."""
     store_file = tmp_path / "rules.enc.json"
     service = DesktopSanitizerService(storage_path=store_file)
     service.create_rule("Projeto Vibe", "[PROJETO_SECRETO]")
@@ -149,7 +149,7 @@ def test_active_chat_hotkey_in_place_sanitization(tmp_path: Path):
 
 
 def test_ai_window_context_detection():
-    """Verifies AI chat window title detection."""
+    """Verifica a detecção de janelas de chat de IA pelo título."""
     assert Win32Bridge.is_ai_context("ChatGPT - Google Chrome") is True
     assert Win32Bridge.is_ai_context("Claude - Mozilla Firefox") is True
     assert Win32Bridge.is_ai_context("Microsoft Copilot") is True

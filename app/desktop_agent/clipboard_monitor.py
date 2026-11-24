@@ -1,4 +1,4 @@
-"""Real-time Clipboard Monitor and Active Chat Interceptor for the Windows Desktop Agent."""
+"""Monitor do clipboard em tempo real e interceptador do chat ativo do agente desktop."""
 
 import threading
 import time
@@ -12,7 +12,7 @@ logger = get_logger(__name__)
 
 
 class ClipboardGuardMonitor:
-    """Monitors clipboard changes and orchestrates active chat prompt sanitization."""
+    """Vigia as mudanças no clipboard e coordena a sanitização do texto do chat ativo."""
 
     def __init__(
         self,
@@ -37,11 +37,11 @@ class ClipboardGuardMonitor:
         self._action_lock = threading.RLock()
 
     def start(self) -> None:
-        """Starts the background clipboard and active-window monitoring thread."""
+        """Inicia a thread em segundo plano que vigia o clipboard e a janela ativa."""
         if self._running:
             return
         self._running = True
-        # Snapshot initial clipboard hash so startup doesn't unexpectedly overwrite old clipboard
+        # Guarda o hash do clipboard atual para o agente não alterar, ao iniciar, um texto copiado antes
         initial_text = self.bridge.get_clipboard_text()
         if initial_text:
             self._last_observed_hash = self.service.compute_text_hash(initial_text)
@@ -52,11 +52,11 @@ class ClipboardGuardMonitor:
         self._thread.start()
 
     def stop(self) -> None:
-        """Stops the background monitoring thread."""
+        """Para a thread de monitoramento."""
         self._running = False
 
     def inspect_clipboard_once(self) -> Optional[DesktopSanitizeResult]:
-        """Performs a single check-and-sanitize cycle on the current system clipboard."""
+        """Faz um ciclo de verificação e sanitização do clipboard atual."""
         if not self.enabled or not self.auto_clipboard:
             return None
 
@@ -65,17 +65,20 @@ class ClipboardGuardMonitor:
             if not current_text or not current_text.strip():
                 return None
 
+            # O hash evita reprocessar o mesmo conteúdo a cada volta do loop de monitoramento.
             current_hash = self.service.compute_text_hash(current_text)
             if current_hash == self._last_observed_hash:
                 return None
 
             self._last_observed_hash = current_hash
 
+            # Texto que o próprio agente acabou de sanitizar: não mexe de novo, senão entraria em loop.
             if self.service.is_already_sanitized(current_text):
                 return None
 
             result = self.service.sanitize_prompt(current_text)
             if result.changed:
+                # Registra o hash do texto já limpo para a próxima verificação não tratá-lo como novo.
                 self._last_observed_hash = result.sanitized_hash
                 self.bridge.set_clipboard_text(result.sanitized_text)
                 if self.on_sanitized_event:
@@ -83,7 +86,7 @@ class ClipboardGuardMonitor:
             return result
 
     def sanitize_active_chat_now(self) -> Optional[DesktopSanitizeResult]:
-        """Captures text from the active AI chat input box (Ctrl+A, Ctrl+C), sanitizes, and pastes back (Ctrl+V)."""
+        """Captura o texto da caixa do chat de IA ativo (Ctrl+A, Ctrl+C), sanitiza e cola de volta (Ctrl+V)."""
         with self._action_lock:
             captured_result: Optional[DesktopSanitizeResult] = None
 
@@ -101,7 +104,7 @@ class ClipboardGuardMonitor:
             return captured_result
 
     def _monitor_loop(self) -> None:
-        """Background daemon loop checking clipboard and active foreground window."""
+        """Loop em segundo plano que verifica o clipboard e a janela em primeiro plano."""
         last_title = ""
         while self._running:
             try:
@@ -114,7 +117,7 @@ class ClipboardGuardMonitor:
                 if self.enabled and self.auto_clipboard:
                     self.inspect_clipboard_once()
             except Exception as exc:
-                logger.error("Error in ClipboardGuardMonitor loop: %s", type(exc).__name__)
+                logger.error("Erro no loop do ClipboardGuardMonitor: %s", type(exc).__name__)
 
             time.sleep(self.poll_interval_sec)
 

@@ -1,2 +1,2 @@
-"""Core modules for Prompt Sanitizer."""
+"""Módulos centrais do Prompt Sanitizer (criptografia, caminhos e logs)."""
 

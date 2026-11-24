@@ -1,11 +1,13 @@
-"""Core service for the Windows Global Desktop Agent.
+"""Serviço central do agente desktop para Windows.
 
-Executes the full Prompt Sanitizer pipeline in-process with zero network latency:
-1. Encrypted-at-rest local storage for custom confidential rules (AES-256-GCM + HMAC Blind Index).
-2. Single-pass custom rule obfuscation (CustomObfuscationEngine).
-3. Mathematical and semantic PII detection (DetectionEngine: Mod 11 CPF/CNPJ, Luhn Credit Card, API Keys).
-4. Canonical placeholder replacement (SanitizationEngine).
-5. Composite risk scoring (RiskAnalyzer: 0-100 score and LOW/MEDIUM/HIGH/CRITICAL classification).
+Executa todo o pipeline do Prompt Sanitizer no próprio processo, sem rede:
+1. Cofre local cifrado com as regras confidenciais do usuário (AES-256-GCM + índice cego HMAC).
+2. Ofuscação dos termos confidenciais em uma única passada (CustomObfuscationEngine).
+3. Detecção de dados pessoais com validação matemática (DetectionEngine: CPF/CNPJ por módulo 11, cartão por Luhn, chaves de API).
+4. Substituição pelas tags padronizadas (SanitizationEngine).
+5. Cálculo do risco (RiskAnalyzer: pontuação de 0 a 100 e níveis LOW/MEDIUM/HIGH/CRITICAL).
+
+Também concentra o CRUD das regras confidenciais (criar, listar, editar, excluir) e o backup do cofre.
 """
 
 import hashlib
@@ -41,13 +43,13 @@ logger = get_logger(__name__)
 
 
 def get_default_storage_path() -> Path:
-    """Returns the platform-appropriate encrypted storage path (prioritizing Windows %APPDATA% with portable fallback)."""
+    """Retorna o caminho do cofre cifrado (em %APPDATA% no Windows, com alternativa portátil)."""
     return get_data_dir() / "rules.enc.json"
 
 
 @dataclass
 class DesktopSanitizeResult:
-    """Result of a real-time desktop prompt sanitization operation."""
+    """Resultado de uma sanitização feita pelo agente."""
 
     original_length: int
     sanitized_text: str
@@ -64,7 +66,7 @@ class DesktopSanitizeResult:
 
     @property
     def summary_badge(self) -> str:
-        """Short safe status message for the HUD and notifications."""
+        """Mensagem curta e segura para o HUD e as notificações."""
         if not self.changed or self.total_detections == 0:
             return "Nenhum dado sensível detectado (Prompt Seguro)"
         types_str = ", ".join(self.detected_types[:3])
@@ -77,7 +79,7 @@ class DesktopSanitizeResult:
 
 
 class DesktopSanitizerService:
-    """Autonomous thread-safe sanitization and CRUD engine for the Desktop Agent."""
+    """Motor de sanitização e CRUD de regras do agente, seguro para uso por várias threads."""
 
     def __init__(
         self,
@@ -96,7 +98,7 @@ class DesktopSanitizerService:
         self._rules: Dict[UUID, ConfidentialRuleRecord] = {}
         self._known_sanitized_hashes: set[str] = set()
 
-        # Statistics for the active session
+        # Estatísticas da sessão atual
         self.total_prompts_protected: int = 0
         self.total_entities_redacted: int = 0
         self.last_result: Optional[DesktopSanitizeResult] = None
@@ -105,11 +107,11 @@ class DesktopSanitizerService:
 
     @staticmethod
     def compute_text_hash(text: str) -> str:
-        """Computes a fast SHA-256 fingerprint of text to avoid re-sanitizing loops."""
+        """Calcula a impressão digital SHA-256 do texto, usada para evitar sanitizar o mesmo texto em loop."""
         return hashlib.sha256(text.encode("utf-8", errors="ignore")).hexdigest()
 
     def is_already_sanitized(self, text: str) -> bool:
-        """Checks if the text matches a recently sanitized output produced by this agent."""
+        """Verifica se o texto é uma saída que o próprio agente sanitizou há pouco."""
         if not text:
             return True
         text_hash = self.compute_text_hash(text)
@@ -117,11 +119,11 @@ class DesktopSanitizerService:
             return text_hash in self._known_sanitized_hashes
 
     # ------------------------------------------------------------------
-    # Encrypted Local Disk Persistence (Zero Plaintext Guarantee)
+    # Gravação local cifrada (o termo nunca fica em texto claro)
     # ------------------------------------------------------------------
 
     def _load_encrypted_store(self) -> None:
-        """Loads encrypted rule records from disk without decrypting terms."""
+        """Carrega do disco as regras cifradas, sem decifrar os termos."""
         with self._lock:
             if not self.storage_path.exists():
                 return
@@ -151,17 +153,17 @@ class DesktopSanitizerService:
                     loaded[rule_id] = record
                 self._rules = loaded
             except Exception as exc:
-                logger.error("Failed to load encrypted rules store: %s", type(exc).__name__)
-                # Preserve the unreadable file so the next save cannot silently destroy user data
+                logger.error("Falha ao carregar o cofre de regras: %s", type(exc).__name__)
+                # Preserva o arquivo ilegível para que a próxima gravação não apague os dados do usuário sem aviso
                 try:
                     backup = self.storage_path.with_suffix(".corrupt")
                     self.storage_path.replace(backup)
-                    logger.error("Corrupt rules store moved to %s", backup.name)
+                    logger.error("Cofre de regras corrompido movido para %s", backup.name)
                 except OSError:
                     pass
 
     def _save_encrypted_store(self) -> None:
-        """Persists ONLY AES-256-GCM ciphertexts and HMAC blind indexes to disk."""
+        """Grava em disco APENAS os textos cifrados (AES-256-GCM) e os índices cegos (HMAC)."""
         with self._lock:
             try:
                 self.storage_path.parent.mkdir(parents=True, exist_ok=True)
@@ -179,14 +181,18 @@ class DesktopSanitizerService:
                     }
                     for rec in sorted(self._rules.values(), key=lambda r: r.created_at)
                 ]
+                # Grava num arquivo temporário e depois o renomeia por cima do original:
+                # assim o cofre nunca fica gravado pela metade se algo falhar no meio.
                 temp_path = self.storage_path.with_suffix(".tmp")
                 temp_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
                 temp_path.replace(self.storage_path)
             except Exception as exc:
-                logger.error("Failed to save encrypted rules store: %s", type(exc).__name__)
+                # Atenção: hoje a falha só vai para o log e a interface não é avisada
+                # (é o commit 3 do guia, "avisar quando o cofre não puder ser gravado").
+                logger.error("Falha ao salvar o cofre de regras: %s", type(exc).__name__)
 
     # ------------------------------------------------------------------
-    # CRUD Operations for Confidential Terms
+    # Operações de CRUD dos termos confidenciais
     # ------------------------------------------------------------------
 
     def create_rule(
@@ -196,13 +202,15 @@ class DesktopSanitizerService:
         case_sensitive: bool = False,
         match_whole_word: bool = True,
     ) -> RuleResponse:
-        """Validates, encrypts, and stores a new confidential term rule."""
+        """Valida, cifra e grava uma nova regra de termo confidencial."""
         req = RuleCreateRequest(
             term=term,
             replacement_tag=replacement_tag,
             case_sensitive=case_sensitive,
             match_whole_word=match_whole_word,
         )
+        # C (Create): o índice cego permite checar duplicidade comparando hashes,
+        # sem decifrar os termos já cadastrados.
         blind_index = self.crypto_service.compute_blind_index(req.term)
 
         with self._lock:
@@ -210,6 +218,7 @@ class DesktopSanitizerService:
                 if existing.term_blind_index == blind_index:
                     raise ValueError("Este termo confidencial já está cadastrado.")
 
+            # Só a versão cifrada do termo vai para o registro; o texto original não é guardado.
             encrypted_term = self.crypto_service.encrypt(req.term)
             record = ConfidentialRuleRecord(
                 id=uuid4(),
@@ -220,6 +229,7 @@ class DesktopSanitizerService:
                 case_sensitive=req.case_sensitive,
                 match_whole_word=req.match_whole_word,
             )
+            # Atualiza a memória e regrava o cofre inteiro em disco.
             self._rules[record.id] = record
             self._save_encrypted_store()
 
@@ -234,9 +244,11 @@ class DesktopSanitizerService:
             )
 
     def list_rules(self) -> List[RuleResponse]:
-        """Returns all active rules with masked previews (never raw terms)."""
+        """Retorna todas as regras com a prévia mascarada (nunca o termo original)."""
         with self._lock:
             responses: List[RuleResponse] = []
+            # R (Read): cada termo é decifrado só em memória para gerar a prévia mascarada;
+            # a interface nunca recebe o termo original.
             for rec in sorted(self._rules.values(), key=lambda r: r.created_at):
                 try:
                     plain_ephemeral = self.crypto_service.decrypt(rec.encrypted_term)
@@ -264,7 +276,7 @@ class DesktopSanitizerService:
         case_sensitive: Optional[bool] = None,
         match_whole_word: Optional[bool] = None,
     ) -> RuleResponse:
-        """Updates an existing confidential rule and re-encrypts if term changed."""
+        """Atualiza uma regra existente e cifra o termo de novo se ele mudou."""
         req = RuleUpdateRequest(
             term=term,
             replacement_tag=replacement_tag,
@@ -277,6 +289,8 @@ class DesktopSanitizerService:
             if not record:
                 raise KeyError("Regra confidencial não encontrada.")
 
+            # U (Update): termo em branco na interface chega como None e mantém o termo atual.
+            # Com termo novo, confere duplicidade com as OUTRAS regras e cifra de novo.
             if req.term is not None:
                 new_blind_index = self.crypto_service.compute_blind_index(req.term)
                 for existing in self._rules.values():
@@ -307,8 +321,9 @@ class DesktopSanitizerService:
             )
 
     def delete_rule(self, rule_id: UUID) -> bool:
-        """Deletes a rule by UUID and updates encrypted storage."""
+        """Exclui uma regra pelo UUID e atualiza o cofre em disco."""
         with self._lock:
+            # D (Delete): remove a regra da memória e regrava o cofre sem ela.
             if rule_id in self._rules:
                 del self._rules[rule_id]
                 self._save_encrypted_store()
@@ -317,7 +332,7 @@ class DesktopSanitizerService:
 
 
     def export_rules(self, destination: Path, password: str) -> int:
-        """Writes all rules to a password-protected backup file; returns the count."""
+        """Grava todas as regras num arquivo de backup protegido por senha; retorna quantas foram exportadas."""
         with self._lock:
             items = [
                 {
@@ -328,21 +343,24 @@ class DesktopSanitizerService:
                 }
                 for rule in self._get_ephemeral_decrypted_rules()
             ]
+        # O backup inteiro é cifrado com uma chave derivada da senha (scrypt + AES-256-GCM).
         payload = encrypt_backup(json.dumps(items).encode("utf-8"), password)
         Path(destination).write_text(json.dumps(payload, indent=2), encoding="utf-8")
         return len(items)
 
     def import_rules(self, source: Path, password: str) -> Tuple[int, int]:
-        """Imports rules from a backup file. Returns (imported, skipped)."""
+        """Importa regras de um arquivo de backup. Retorna (importadas, ignoradas)."""
         try:
             payload = json.loads(Path(source).read_text(encoding="utf-8"))
         except (OSError, ValueError) as exc:
             raise ValueError("Não foi possível ler o arquivo de backup.") from exc
 
+        # Com a senha errada, decrypt_backup lança ValueError aqui, antes de qualquer regra ser criada.
         items = json.loads(decrypt_backup(payload, password).decode("utf-8"))
         imported = skipped = 0
         for item in items:
             try:
+                # Reaproveita o create_rule: valida, cifra e recusa termos que já existem.
                 self.create_rule(
                     term=item["term"],
                     replacement_tag=item["replacement_tag"],
@@ -356,7 +374,7 @@ class DesktopSanitizerService:
     
 
     def _get_ephemeral_decrypted_rules(self) -> List[DecryptedRule]:
-        """Decrypts rules strictly in local scope for a single sanitization pass."""
+        """Decifra as regras só em memória, para uma única sanitização."""
         with self._lock:
             decrypted_list: List[DecryptedRule] = []
             for rec in self._rules.values():
@@ -376,11 +394,11 @@ class DesktopSanitizerService:
             return decrypted_list
 
     # ------------------------------------------------------------------
-    # Full Real-Time Sanitization Pipeline
+    # Pipeline completo de sanitização em tempo real
     # ------------------------------------------------------------------
 
     def sanitize_prompt(self, prompt_text: str) -> DesktopSanitizeResult:
-        """Runs the complete sanitization and risk evaluation pipeline on a text string."""
+        """Executa o pipeline completo de sanitização e avaliação de risco sobre um texto."""
         if not prompt_text or not prompt_text.strip():
             return DesktopSanitizeResult(
                 original_length=len(prompt_text or ""),
@@ -394,12 +412,12 @@ class DesktopSanitizerService:
             )
 
         with self._lock:
-            # 1. Custom confidential rules (Single-Pass Regex Engine)
+            # 1. Regras confidenciais do usuário (motor de regex de passada única)
             ephemeral_rules = self._get_ephemeral_decrypted_rules()
             custom_sanitized, custom_matches = CustomObfuscationEngine.apply(
                 prompt_text, ephemeral_rules
             )
-            # Clear ephemeral references immediately
+            # Descarta imediatamente as regras decifradas
             del ephemeral_rules
 
             custom_detections = [
@@ -417,10 +435,10 @@ class DesktopSanitizerService:
                 for m in custom_matches
             ]
 
-            # 2. Structured PII and Credentials Detection (CPF, Credit Card, Email, Phone, API Keys)
+            # 2. Detecção de dados pessoais e credenciais (CPF, cartão, e-mail, telefone, chaves de API)
             pii_detections = self.detection_engine.analyze(custom_sanitized)
 
-            # 3. Canonical Placeholder Replacement
+            # 3. Substituição pelas tags padronizadas
             final_text = self.sanitization_engine.sanitize(custom_sanitized, pii_detections)
 
             all_detections = custom_detections + pii_detections
@@ -431,7 +449,7 @@ class DesktopSanitizerService:
 
             if changed:
                 self._known_sanitized_hashes.add(sanitized_hash)
-                # Bound hash cache size in memory
+                # Limita o tamanho do cache de hashes em memória
                 if len(self._known_sanitized_hashes) > 500:
                     self._known_sanitized_hashes.clear()
                     self._known_sanitized_hashes.add(sanitized_hash)

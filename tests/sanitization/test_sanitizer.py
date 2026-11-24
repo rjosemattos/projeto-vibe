@@ -1,4 +1,4 @@
-"""Tests for SanitizationEngine and entity consistency preservation."""
+"""Testes do SanitizationEngine e da consistência das entidades."""
 
 from app.detection.engine import DetectionEngine
 from app.sanitization.engine import SanitizationEngine
@@ -34,13 +34,13 @@ def test_sanitization_multiple_different_types():
 def test_sanitization_entity_consistency_same_entity_repeated():
     engine = DetectionEngine()
     sanitizer = SanitizationEngine()
-    # Same CPF twice: once formatted, once unformatted
+    # O mesmo CPF duas vezes: uma formatada e outra sem formatação
     text = "O CPF 123.456.789-09 pertence ao cliente. Verifique novamente o CPF 12345678909."
 
     detections = engine.analyze(text)
     sanitized = sanitizer.sanitize(text, detections)
 
-    # Both occurrences should map to [CPF_USUARIO_1] because they represent the exact same entity!
+    # As duas ocorrências viram [CPF_USUARIO_1], porque são exatamente a mesma entidade!
     assert "[CPF_USUARIO_1]" in sanitized
     assert "[CPF_USUARIO_2]" not in sanitized
     assert sanitized.count("[CPF_USUARIO_1]") == 2
@@ -51,7 +51,7 @@ def test_sanitization_entity_consistency_same_entity_repeated():
 def test_sanitization_distinct_entities_same_type():
     engine = DetectionEngine()
     sanitizer = SanitizationEngine()
-    # Two distinct CPFs
+    # Dois CPFs diferentes
     text = "Compare os CPFs 123.456.789-09 e 529.982.247-25 para validação."
 
     detections = engine.analyze(text)

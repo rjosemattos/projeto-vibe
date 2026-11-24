@@ -1,4 +1,4 @@
-"""Tests for RuleCryptoService (AES-256-GCM and Blind Indexing)."""
+"""Testes do RuleCryptoService (AES-256-GCM e índice cego)."""
 
 import pytest
 from app.core.crypto import RuleCryptoService
@@ -22,9 +22,9 @@ def test_unique_nonce_generates_different_ciphertexts():
     enc1 = crypto.encrypt(secret_term)
     enc2 = crypto.encrypt(secret_term)
 
-    # In AES-GCM, each encryption uses a fresh 12-byte random nonce
+    # No AES-GCM, cada cifragem usa um nonce aleatório novo de 12 bytes
     assert enc1 != enc2
-    # Both decrypt back to the same plain text
+    # As duas decifram de volta para o mesmo texto
     assert crypto.decrypt(enc1) == secret_term
     assert crypto.decrypt(enc2) == secret_term
 
@@ -34,7 +34,7 @@ def test_tampered_ciphertext_fails_authentication():
     secret_term = "TopSecretProject"
     encrypted = crypto.encrypt(secret_term)
 
-    # Tamper with base64 payload
+    # Altera o payload em base64
     tampered = encrypted[:-2] + ("AA" if encrypted[-2:] != "AA" else "BB")
 
     try:
@@ -51,7 +51,7 @@ def test_blind_index_deterministic_and_normalized():
     h3 = crypto.compute_blind_index("  CESAR  ")
     h4 = crypto.compute_blind_index("OutroTermo")
 
-    # Blind index is casefolded and stripped
+    # O índice cego ignora maiúsculas e espaços nas pontas
     assert h1 == h2
     assert h1 == h3
     assert h1 != h4

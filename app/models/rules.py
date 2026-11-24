@@ -1,4 +1,4 @@
-"""Domain models and Pydantic schemas for confidential obfuscation rules."""
+"""Modelos de domínio e esquemas Pydantic das regras confidenciais de ofuscação."""
 
 import re
 from datetime import datetime, timezone
@@ -6,12 +6,12 @@ from typing import Optional
 from uuid import UUID, uuid4
 from pydantic import BaseModel, Field, field_validator
 
-# Valid tag format: [UPPERCASE_SNAKE_CASE_OR_DIGITS]
+# Formato válido da tag: [MAIUSCULAS_DIGITOS_OU_SUBLINHADO]
 TAG_REGEX = re.compile(r"^\[[A-Z0-9_]{2,40}\]$")
 
 
 class RuleCreateRequest(BaseModel):
-    """Payload for registering a confidential term obfuscation rule."""
+    """Dados para cadastrar uma regra de ofuscação de termo confidencial."""
 
     term: str = Field(
         ...,
@@ -60,7 +60,7 @@ class RuleCreateRequest(BaseModel):
 
 
 class RuleUpdateRequest(BaseModel):
-    """Payload for updating an existing confidential rule."""
+    """Dados para atualizar uma regra confidencial existente."""
 
     term: Optional[str] = Field(None, min_length=2, max_length=150)
     replacement_tag: Optional[str] = None
@@ -94,11 +94,11 @@ class RuleUpdateRequest(BaseModel):
 
 
 class RuleResponse(BaseModel):
-    """Public representation of an obfuscation rule.
-    
-    Zero Plaintext Persistence Guarantee:
-    The raw term is NEVER returned in responses to prevent log/browser leakage.
-    Instead, a safe masked indicator is returned (e.g., 'C***R').
+    """Representação pública de uma regra de ofuscação.
+
+    Garantia de que o termo nunca aparece em texto claro:
+    o termo original NUNCA é devolvido, para não vazar em logs ou na interface.
+    No lugar dele, é devolvida uma prévia mascarada (ex.: 'C***R').
     """
 
     id: UUID
@@ -111,7 +111,7 @@ class RuleResponse(BaseModel):
 
 
 class ConfidentialRuleRecord:
-    """Internal encrypted-at-rest domain entity."""
+    """Entidade interna gravada no cofre, com o termo apenas na forma cifrada."""
 
     def __init__(
         self,

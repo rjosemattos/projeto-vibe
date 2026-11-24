@@ -1,4 +1,4 @@
-"""Risk Assessment Engine for analyzing exposure severity in prompts."""
+"""Motor de avaliação de risco: mede a gravidade da exposição de dados em um prompt."""
 
 from typing import List, Set
 from app.detection.base import Detection
@@ -6,10 +6,10 @@ from app.models.response import RiskReport, SeverityLevel
 
 
 class RiskAnalyzer:
-    """Evaluates aggregate privacy and security risks from identified sensitive detections."""
+    """Avalia o risco total à privacidade e à segurança a partir das detecções encontradas."""
 
     def evaluate(self, detections: List[Detection]) -> RiskReport:
-        """Calculate composite risk level, numerical score (0-100), and transparent reasons."""
+        """Calcula o nível de risco, a pontuação (0 a 100) e os motivos que explicam o resultado."""
         if not detections:
             return RiskReport(
                 risk_level=SeverityLevel.LOW,
@@ -22,14 +22,14 @@ class RiskAnalyzer:
         total_count = len(detections)
         reasons: List[str] = []
 
-        # 1. Critical credential evaluation
+        # 1. Credenciais críticas
         has_credentials = SeverityLevel.CRITICAL in severities
         if has_credentials:
             reasons.append(
                 "Presença de credenciais de acesso, chaves de API, senhas ou tokens de autorização ativos."
             )
 
-        # 2. Financial / Official identification evaluation
+        # 2. Dados financeiros e documentos oficiais
         has_financial = "CARTAO_CREDITO" in types
         if has_financial:
             reasons.append("Identificação de dados de cartão de crédito validados matematicamente.")
@@ -38,12 +38,12 @@ class RiskAnalyzer:
         if has_gov_id:
             reasons.append("Presença de identificadores governamentais formais (CPF/CNPJ).")
 
-        # 3. Contact PII evaluation
+        # 3. Dados pessoais de contato
         has_contact = ("EMAIL" in types) or ("TELEFONE" in types)
         if has_contact and not has_gov_id and not has_credentials:
             reasons.append("Presença de canais de contato pessoal direto (e-mail ou telefone).")
 
-        # 4. Correlation / Cross-referencing risk
+        # 4. Risco de correlação (vários tipos de dado juntos identificam a pessoa)
         if has_gov_id and has_contact:
             reasons.append(
                 "Combinação de documento oficial com dados de contato, elevando a probabilidade de ataques de engenharia social ou roubo de identidade."
@@ -52,7 +52,7 @@ class RiskAnalyzer:
         if "IP_ADDRESS" in types:
             reasons.append("Presença de endereços IP que podem expor a topologia da infraestrutura.")
 
-        # 5. Custom confidential rules evaluation
+        # 5. Regras confidenciais cadastradas pelo usuário
         if "REGRA_CUSTOMIZADA" in types:
             reasons.append(
                 "Identificação de termos confidenciais sob regras dinâmicas personalizadas de ofuscação."
@@ -63,7 +63,7 @@ class RiskAnalyzer:
                 f"Volume elevado de entidades sensíveis detectadas ({total_count} ocorrências)."
             )
 
-        # Calculate Score and Aggregate Level
+        # Calcula a pontuação e o nível final
         if has_credentials:
             base_score = 85
             score = min(100, base_score + (total_count - 1) * 3 + (10 if (has_gov_id or has_financial) else 0))
