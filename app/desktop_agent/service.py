@@ -42,7 +42,7 @@ from app.core.crypto import RuleCryptoService, decrypt_backup, encrypt_backup
 logger = get_logger(__name__)
 
 class RulesStoreError(RuntimeError):
-    """Raised when the encrypted rules store cannot be written to disk."""
+    """Erro gerado quando não é possível salvar o armazenamento de regras criptografadas no disco."""
 
 def get_default_storage_path() -> Path:
     """Retorna o caminho do cofre cifrado (em %APPDATA% no Windows, com alternativa portátil)."""
@@ -189,7 +189,7 @@ class DesktopSanitizerService:
                 temp_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
                 temp_path.replace(self.storage_path)
             except Exception as exc:
-                logger.error("Failed to save encrypted rules store: %s", type(exc).__name__)
+                logger.error("Falha ao salvar o cofre de regras: %s", type(exc).__name__)
                 raise RulesStoreError(
                     "Não foi possível salvar as regras no disco. A alteração foi desfeita."
                 ) from exc
@@ -339,7 +339,7 @@ class DesktopSanitizerService:
             )
 
     def delete_rule(self, rule_id: UUID) -> bool:
-        """Deletes a rule by UUID and updates encrypted storage."""
+        """Exclui uma regra pelo UUID e atualiza o cofre em disco."""
         with self._lock:
             record = self._rules.pop(rule_id, None)
             if record is None:
