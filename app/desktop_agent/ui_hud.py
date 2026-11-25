@@ -22,6 +22,11 @@ from app.models.response import SeverityLevel
 from pathlib import Path
 from tkinter import filedialog, messagebox, simpledialog, ttk
 
+from app.desktop_agent.service import (
+DesktopSanitizeResult,
+DesktopSanitizerService,
+RulesStoreError,
+)
 
 logger = get_logger(__name__)
 
@@ -369,7 +374,11 @@ class RulesManagerWindow(tk.Toplevel):
         if not confirmed:
             return
         # D (Delete) no serviço; depois a tabela e o contador do HUD são atualizados.
-        self.service.delete_rule(rule_id)
+        try:
+            self.service.delete_rule(rule_id)
+        except RulesStoreError as exc:
+            messagebox.showerror("Erro ao salvar", str(exc), parent=self)
+            return
         if self.editing_rule_id == rule_id:
             self._reset_form()
         self._refresh_table()
