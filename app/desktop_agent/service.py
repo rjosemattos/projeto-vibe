@@ -235,7 +235,6 @@ class DesktopSanitizerService:
             # Atualiza a memória e regrava o cofre inteiro em disco.
             self._rules[record.id] = record
             
-            self._rules[record.id] = record
             try:
                 self._save_encrypted_store()
             except RulesStoreError:
@@ -297,11 +296,11 @@ class DesktopSanitizerService:
             record = self._rules.get(rule_id)
             if not record:
                 raise KeyError("Regra confidencial não encontrada.")
-                snapshot = dict(vars(record))
+            snapshot = dict(vars(record))
             # ... (as alterações do termo, da tag e das opções continuam iguais)
             record.updated_at = datetime.now(timezone.utc)
             try:
-                save_encrypted_store()
+                self._save_encrypted_store()
             except RulesStoreError:
                 vars(record).update(snapshot)
                 raise
