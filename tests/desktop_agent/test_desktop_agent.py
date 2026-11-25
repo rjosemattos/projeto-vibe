@@ -180,3 +180,32 @@ def test_reads_legacy_store_with_user_id_and_drops_it_on_save(tmp_path: Path):
 
     service.create_rule("Projeto Vibe", "[PROJETO_SECRETO]")  # força uma nova gravação
     assert "user_id" not in store_file.read_text(encoding="utf-8")
+
+from app.desktop_agent.service import (
+    DesktopSanitizeResult,
+    DesktopSanitizerService,
+    RulesStoreError,
+)
+
+def _blocked_store_path(tmp_path: Path) -> Path:
+    """Caminho cuja pasta é na verdade um arquivo: a gravação falha em qualquer sistema."""
+    blocker = tmp_path / "bloqueio"
+    blocker.write_text("x", encoding="utf-8")
+    return blocker / "rules.enc.json"
+
+def test_create_rule_rolls_back_when_store_cannot_be_saved(tmp_path: Path):
+    service = DesktopSanitizerService(storage_path=_blocked_store_path(tmp_path))
+    with pytest.raises(RulesStoreError):
+        service.create_rule("CESAR", "[COMPANY_SENSITIVE]")
+        assert service.list_rules() == []
+
+def test_update_and_delete_roll_back_when_store_cannot_be_saved(tmp_path: Path):
+    service = DesktopSanitizerService(storage_path=tmp_path / "rules.enc.json")
+    rule = service.create_rule("CESAR", "[COMPANY_SENSITIVE]")
+    service.storage_path = _blocked_store_path(tmp_path)
+    with pytest.raises(RulesStoreError):
+        service.update_rule(rule.id, replacement_tag="[OUTRA_TAG]")
+    assert service.list_rules()[0].replacement_tag == "[COMPANY_SENSITIVE]"
+    with pytest.raises(RulesStoreError):
+        service.delete_rule(rule.id)
+        assert len(service.list_rules()) == 1

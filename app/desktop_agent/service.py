@@ -41,6 +41,8 @@ from app.core.crypto import RuleCryptoService, decrypt_backup, encrypt_backup
 
 logger = get_logger(__name__)
 
+class RulesStoreError(RuntimeError):
+    """Erro gerado quando não é possível salvar o armazenamento de regras criptografadas no disco."""
 
 def get_default_storage_path() -> Path:
     """Retorna o caminho do cofre cifrado (em %APPDATA% no Windows, com alternativa portátil)."""
@@ -187,9 +189,10 @@ class DesktopSanitizerService:
                 temp_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
                 temp_path.replace(self.storage_path)
             except Exception as exc:
-                # Atenção: hoje a falha só vai para o log e a interface não é avisada
-                # (é o commit 3 do guia, "avisar quando o cofre não puder ser gravado").
                 logger.error("Falha ao salvar o cofre de regras: %s", type(exc).__name__)
+                raise RulesStoreError(
+                    "Não foi possível salvar as regras no disco. A alteração foi desfeita."
+                ) from exc
 
     # ------------------------------------------------------------------
     # Operações de CRUD dos termos confidenciais
@@ -231,7 +234,12 @@ class DesktopSanitizerService:
             )
             # Atualiza a memória e regrava o cofre inteiro em disco.
             self._rules[record.id] = record
-            self._save_encrypted_store()
+            
+            try:
+                self._save_encrypted_store()
+            except RulesStoreError:
+                del self._rules[record.id]
+                raise
 
             return RuleResponse(
                 id=record.id,
@@ -288,6 +296,16 @@ class DesktopSanitizerService:
             record = self._rules.get(rule_id)
             if not record:
                 raise KeyError("Regra confidencial não encontrada.")
+            snapshot = dict(vars(record))
+            # ... (as alterações do termo, da tag e das opções continuam iguais)
+            record.updated_at = datetime.now(timezone.utc)
+            try:
+                self._save_encrypted_store()
+            except RulesStoreError:
+                vars(record).update(snapshot)
+                raise
+            if not record:
+                raise KeyError("Regra confidencial não encontrada.")
 
             # U (Update): termo em branco na interface chega como None e mantém o termo atual.
             # Com termo novo, confere duplicidade com as OUTRAS regras e cifra de novo.
@@ -323,12 +341,15 @@ class DesktopSanitizerService:
     def delete_rule(self, rule_id: UUID) -> bool:
         """Exclui uma regra pelo UUID e atualiza o cofre em disco."""
         with self._lock:
-            # D (Delete): remove a regra da memória e regrava o cofre sem ela.
-            if rule_id in self._rules:
-                del self._rules[rule_id]
+            record = self._rules.pop(rule_id, None)
+            if record is None:
+                return False
+            try:
                 self._save_encrypted_store()
-                return True
-            return False
+            except RulesStoreError:
+                self._rules[rule_id] = record
+                raise
+            return True
 
 
     def export_rules(self, destination: Path, password: str) -> int:
